@@ -1,0 +1,36 @@
+{
+  "cities": [
+    {
+      "id": "bengaluru", "name": "Bengaluru", "emoji": "🌳", "tagline": "Garden City traffic, one parcel at a time.",
+      "areas": ["Koramangala", "Indiranagar", "HSR Layout", "Jayanagar", "BTM Layout", "Malleshwaram", "Basavanagudi", "JP Nagar", "MG Road", "Ulsoor", "Frazer Town", "Rajajinagar", "Banashankari", "Vijayanagar", "Bellandur", "Sarjapur Road", "Marathahalli", "Whitefield", "Bannerghatta Road", "Electronic City", "Hebbal", "RT Nagar", "Hennur", "Yelahanka", "Sadashivanagar"]
+    },
+    {
+      "id": "mumbai", "name": "Mumbai", "emoji": "🌊", "tagline": "Monsoon roads and the fastest customers in India.", "rainEvery": 3,
+      "areas": ["Bandra", "Khar", "Santacruz", "Juhu", "Vile Parle", "Andheri", "Versova", "Goregaon", "Malad", "Kandivali", "Borivali", "Powai", "Ghatkopar", "Kurla", "Chembur", "Sion", "Wadala", "Matunga", "Dadar", "Worli", "Lower Parel", "Byculla", "Marine Lines", "Mulund", "Colaba"]
+    },
+    {
+      "id": "delhi", "name": "Delhi", "emoji": "🏛️", "tagline": "Wide roads, wild traffic, winter fog.",
+      "areas": ["Connaught Place", "Karol Bagh", "Paharganj", "Rajouri Garden", "Janakpuri", "Dwarka", "Lajpat Nagar", "Defence Colony", "Green Park", "Hauz Khas", "Malviya Nagar", "Saket", "Sarojini Nagar", "Vasant Kunj", "Greater Kailash", "Kalkaji", "Nehru Place", "Mayur Vihar", "Laxmi Nagar", "Shahdara", "Model Town", "Pitampura", "Rohini", "Chanakyapuri", "Chandni Chowk"]
+    },
+    {
+      "id": "hyderabad", "name": "Hyderabad", "emoji": "🕌", "tagline": "Biryani runs from HITEC City to the Old City.",
+      "areas": ["Ameerpet", "Begumpet", "Somajiguda", "Banjara Hills", "Jubilee Hills", "Madhapur", "HITEC City", "Gachibowli", "Kondapur", "Manikonda", "Tolichowki", "Mehdipatnam", "Kukatpally", "Miyapur", "Kompally", "Secunderabad", "Tarnaka", "Uppal", "Himayatnagar", "Abids", "Nampally", "Malakpet", "Dilsukhnagar", "LB Nagar", "Charminar"]
+    },
+    {
+      "id": "chennai", "name": "Chennai", "emoji": "🏖️", "tagline": "Hot afternoons, sea breeze, filter-coffee rush hour.",
+      "areas": ["T. Nagar", "Mylapore", "Alwarpet", "Nungambakkam", "Egmore", "Kilpauk", "Anna Nagar", "Ashok Nagar", "KK Nagar", "Vadapalani", "Kodambakkam", "Saidapet", "Guindy", "Velachery", "Adyar", "Besant Nagar", "Thiruvanmiyur", "Perungudi", "Sholinganallur", "Porur", "Chromepet", "Tambaram", "Perambur", "Royapettah", "Triplicane"]
+    },
+    {
+      "id": "pune", "name": "Pune", "emoji": "⛰️", "tagline": "Hill-city hustle from the Peths to the IT parks.",
+      "areas": ["Shivajinagar", "Deccan", "Sadashiv Peth", "Erandwane", "Kothrud", "Karve Nagar", "Camp", "Koregaon Park", "Kalyani Nagar", "Viman Nagar", "Yerawada", "Kharadi", "Hadapsar", "Magarpatta", "Wanowrie", "Kondhwa", "Swargate", "Sinhagad Road", "Aundh", "Baner", "Pashan", "Bavdhan", "Wakad", "Pimple Saudagar", "Hinjewadi"]
+    },
+    {
+      "id": "kolkata", "name": "Kolkata", "emoji": "🚋", "tagline": "Trams, yellow cabs and the oldest lanes in the game.",
+      "areas": ["Park Street", "Chowringhee", "Esplanade", "Elgin Road", "Bhowanipore", "Kalighat", "Alipore", "Ballygunge", "Gariahat", "Kasba", "Jadavpur", "Tollygunge", "Behala", "Garia", "Entally", "Sealdah", "College Street", "Burrabazar", "Bagbazar", "Shyambazar", "Dum Dum", "Lake Town", "Salt Lake", "Rajarhat", "New Town"]
+    },
+    {
+      "id": "ahmedabad", "name": "Ahmedabad", "emoji": "🪁", "tagline": "Kite season skies and old-city pols.",
+      "areas": ["Navrangpura", "CG Road", "Law Garden", "Ellisbridge", "Paldi", "Ashram Road", "Vastrapur", "Bodakdev", "Satellite", "Prahlad Nagar", "SG Highway", "Thaltej", "Bopal", "Vejalpur", "Naranpura", "Ghatlodia", "Gota", "Chandkheda", "Shahibaug", "Kalupur", "Naroda", "Nikol", "Vastral", "Maninagar", "Manek Chowk"]
+    }
+  ]
+}

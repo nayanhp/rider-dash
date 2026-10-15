@@ -63,9 +63,10 @@ html, body {
 #overlay {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
   background: rgba(20, 24, 60, 0.35);
 }
 #overlay[hidden] { display: none; }
@@ -78,7 +79,10 @@ html, body {
   padding: 22px 20px;
   text-align: center;
   box-shadow: 0 8px 0 rgba(0, 0, 0, 0.2), 0 18px 40px rgba(0, 0, 0, 0.3);
+  /* auto margins centre the panel but still let tall panels scroll from the top */
+  margin: auto;
 }
+.panel.wide { max-width: 520px; padding: 16px 14px; }
 .panel h1 { margin: 0 0 6px; font-size: 2.2rem; color: var(--red); text-shadow: 0 3px 0 var(--ink); letter-spacing: 0.5px; }
 .panel h2 { margin: 0 0 10px; font-size: 1.8rem; }
 .panel p { margin: 8px 0; }
@@ -86,8 +90,51 @@ html, body {
 .how { text-align: left; margin: 12px 0; padding-left: 20px; line-height: 1.5; }
 .keys { font-size: 0.85rem; opacity: 0.75; }
 .big { font-size: 3rem; font-weight: bold; }
-.stars { font-size: 2.6rem; color: var(--yellow); text-shadow: 0 2px 0 var(--yellow-d); letter-spacing: 4px; }
-.stars span { color: #ddd; text-shadow: none; }
+.stars { color: var(--yellow-d); letter-spacing: 1px; font-size: 0.85rem; }
+.big-stars { display: block; font-size: 2.6rem; color: var(--yellow); text-shadow: 0 2px 0 var(--yellow-d); letter-spacing: 4px; }
+.stars .off, .big-stars .off { color: #d8d4cb; text-shadow: none; }
+.where { margin: 0; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.7; }
+.goal { font-size: 1.15rem; }
+.badges { font-size: 0.95rem; }
+.tip { background: #fff1c9; border-radius: 12px; padding: 10px 12px; margin: 10px 0; line-height: 1.4; }
+.small-print { font-size: 0.85rem; opacity: 0.75; }
+.unlock { background: #e3f8d8; border-radius: 12px; padding: 8px 10px; }
+.col { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+
+/* Header bar: back button, title, progress */
+.bar { display: grid; grid-template-columns: 48px 1fr 48px; align-items: center; gap: 6px; margin-bottom: 4px; }
+.bar h2 { margin: 0; font-size: 1.5rem; }
+.bar-prog { font-weight: bold; font-size: 0.95rem; }
+
+/* City list */
+.cities { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.city {
+  display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 10px;
+  width: 100%; text-align: left; font: inherit; color: var(--ink);
+  background: #fff; border: 0; border-radius: 14px; padding: 10px 12px; cursor: pointer;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.12);
+}
+.city:disabled { opacity: 0.55; cursor: not-allowed; }
+.city-emoji { font-size: 1.8rem; text-align: center; }
+.city-text b { display: block; font-size: 1.1rem; }
+.city-text small, .city-prog small { display: block; font-size: 0.78rem; opacity: 0.75; font-weight: normal; }
+.city-prog { text-align: right; font-weight: bold; }
+
+/* Area grid */
+.areas { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-top: 8px; }
+.area {
+  display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 2px;
+  min-height: 92px; padding: 8px 4px; font: inherit; color: var(--ink);
+  background: #fff; border: 0; border-radius: 14px; cursor: pointer;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.12);
+}
+.area:disabled { background: #ece8df; opacity: 0.6; cursor: not-allowed; }
+.area.done { background: #eefbe6; }
+.area.current { outline: 3px solid var(--green); outline-offset: 1px; }
+.area-num { font-weight: bold; font-size: 1.15rem; }
+.area-name { font-size: 0.78rem; line-height: 1.15; text-align: center; }
+.area-meta { display: flex; gap: 4px; align-items: center; min-height: 1em; }
+.badge { font-size: 0.8rem; }
 
 .row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 14px; }
 .btn {
@@ -108,3 +155,5 @@ html, body {
 .btn.green { background: var(--green); box-shadow: 0 4px 0 var(--green-d); }
 .btn.yellow { background: var(--yellow); box-shadow: 0 4px 0 var(--yellow-d); color: var(--ink); text-shadow: none; }
 .btn.red { background: var(--red); box-shadow: 0 4px 0 var(--red-d); }
+.btn.blue { background: #2f8cff; box-shadow: 0 4px 0 #1c5fb8; }
+.btn.small { min-height: 40px; padding: 6px 12px; font-size: 1rem; }

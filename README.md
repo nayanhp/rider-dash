@@ -12,13 +12,16 @@ npm test         # simulation unit tests (Vitest)
 npm run build    # type-check + production build into dist/
 ```
 
+Open `http://localhost:5173/?unlock` to play any level without clearing the ones before it.
+
 Controls: swipe or tap left/right to change lanes, swipe up to jump. Keyboard: ← → and ↑ / Space.
 
 ## Layout
 
 - `src/sim/` — game rules. Pure TypeScript, fixed 60 Hz tick, seeded PRNG; no DOM, no `Math.random`.
   A run is `seed + level config + input log`, so `replay()` reproduces it exactly.
-- `src/data/` — levels and tuning numbers as JSON. Balance changes go here, not in code.
+- `src/data/` — cities and areas, the difficulty curve, and tuning numbers as JSON. Balance changes go here, not in code.
+  Add a city or area by editing `cities.json`; its level settings are generated from the curve.
 - `src/render/` — Canvas 2D pseudo-3D renderer and effects. Reads sim state, never writes it.
 - `src/input.ts` — swipes, taps and keys turned into queued commands.
 - `src/platform/` — analytics events (console sink for now) and fail-soft local storage.
