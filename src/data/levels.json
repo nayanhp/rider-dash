@@ -1,7 +1,7 @@
 {
   "curve": {
-    "comment": "Difficulty d runs 0..1. d = cityIndex * cityStep + areaFraction * areaSpan, capped at 1. Each city starts a little harder than the last and ramps up through its areas.",
-    "cityStep": 0.08,
+    "comment": "Difficulty d runs 0..1. d = cityIndex * cityStep + areaFraction * areaSpan, capped at 1. cityStep * 7 + areaSpan = 1, so the ceiling is the last area of the last city. A larger cityStep pinned Kolkata's finale and Ahmedabad's back half to the same maximum.",
+    "cityStep": 0.057143,
     "areaSpan": 0.6,
     "goal": [
       2,

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0 — 2026-10-15 · Pause, sound, and a 200-level balance pass
+
+- Leaving the tab or the window freezes a live run and shows a Resume overlay, so the road cannot tick while you are not looking. An ad hold does the same. Blur does not send CrazyGames gameplay events; their site already tracks focus.
+- Procedural music and effects (jump, coin, parcel, drop, hit, level clear) from WebAudio, with no audio files. The speaker button is saved. `muteAudio` from the SDK wins, ads mute only while they play, and the first tap or key starts the audio context.
+- The opening neighbourhood shows steer, parcel, and DROP hints until that area has been cleared. Later areas stay quiet.
+- `window.rd` is attached only in dev builds.
+- Difficulty `cityStep` is 0.057143 so the curve reaches its ceiling on the last area of Ahmedabad, instead of copying that maximum across the end of Kolkata and Ahmedabad. `npm run balance` rewrites `BALANCE.md`. The bot clears Koramangala on every seed; city clear rates step down from 86% to 34% with no tuning plateau and no within-city cliff.
+- A tied endless score is no longer called a new record. `level_end` is sent when you leave the result, so a revive is one run. An ad that never calls back releases the game after two minutes, and the result buttons ignore keys while an ad is up. A still-loading SDK script is not treated as missing.
+
 ## 0.3.0 — 2026-10-15 · CrazyGames submission build
 
 - HTML5 SDK v3 adapter (`src/platform/crazygames.ts`): init, loading start/stop, gameplay start/stop around a real run, happy time on a new endless record or a cleared city. Falls back to a no-op when the SDK is missing or disabled.

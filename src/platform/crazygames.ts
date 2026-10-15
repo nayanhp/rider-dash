@@ -63,6 +63,8 @@ declare global {
 }
 
 const SDK_URL = 'https://sdk.crazygames.com/crazygames-sdk-v3.js';
+/** A lost portal message must not leave the game on "One moment…" forever. */
+export const AD_REQUEST_TIMEOUT_MS = 120_000;
 
 function offlinePortal(): Portal {
   return {
@@ -198,12 +200,15 @@ export async function connectPortal(sdk: CrazySDK | null): Promise<Portal> {
     request: (kind) =>
       new Promise<AdResult>((resolve) => {
         let settled = false;
+        let timer: ReturnType<typeof setTimeout> | undefined;
         const finish = (result: AdResult) => {
           if (settled) return;
           settled = true;
+          if (timer !== undefined) clearTimeout(timer);
           setAdMuted(false);
           resolve(result);
         };
+        timer = setTimeout(() => finish({ ok: false, code: 'timeout' }), AD_REQUEST_TIMEOUT_MS);
         try {
           sdk.ad.requestAd(kind, {
             adStarted: () => setAdMuted(true),
@@ -233,8 +238,18 @@ export async function connectPortal(sdk: CrazySDK | null): Promise<Portal> {
 function loadSdkScript(): Promise<CrazySDK | null> {
   const ready = window.CrazyGames?.SDK;
   if (ready) return Promise.resolve(ready);
-  // The tag in index.html is the supported install. If it ran and left no SDK, stop.
-  if (document.querySelector('script[data-cg-sdk]')) return Promise.resolve(null);
+  const existing = document.querySelector<HTMLScriptElement>('script[data-cg-sdk]');
+  if (existing) {
+    // The tag is blocking, so by the time this module runs it has usually finished.
+    // If the document is still parsing, wait instead of treating a live download as a failure.
+    if (document.readyState !== 'loading') return Promise.resolve(null);
+    return new Promise((resolve) => {
+      const finish = () => resolve(window.CrazyGames?.SDK ?? null);
+      existing.addEventListener('load', finish, { once: true });
+      existing.addEventListener('error', finish, { once: true });
+      document.addEventListener('DOMContentLoaded', finish, { once: true });
+    });
+  }
   return new Promise((resolve) => {
     const script = document.createElement('script');
     script.src = SDK_URL;

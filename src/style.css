@@ -80,6 +80,55 @@ html, body {
 }
 #overlay[hidden] { display: none; }
 
+#hint {
+  position: absolute;
+  z-index: 2;
+  left: 12px;
+  right: 12px;
+  top: 58px;
+  max-width: 420px;
+  margin: 0 auto;
+  text-align: center;
+  background: rgba(255, 250, 240, 0.94);
+  color: var(--ink);
+  border-radius: 14px;
+  padding: 8px 12px;
+  font-weight: bold;
+  line-height: 1.35;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+#hint[hidden] { display: none; }
+
+#pause {
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  background: rgba(20, 24, 60, 0.45);
+}
+#pause[hidden] { display: none; }
+
+#mute {
+  position: absolute;
+  z-index: 7;
+  right: 10px;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  font-size: 1.35rem;
+  line-height: 1;
+  border: 0;
+  border-radius: 14px;
+  background: rgba(255, 250, 240, 0.94);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+}
+#mute:disabled { opacity: 0.7; cursor: default; }
+
 .panel {
   width: 100%;
   max-width: 380px;
@@ -167,6 +216,7 @@ html, body {
 #stage.ad-hold #overlay { pointer-events: none; }
 
 @media (max-height: 520px) {
+  #hint { top: 46px; font-size: 0.85rem; padding: 6px 8px; }
   #overlay { padding-top: 8px; padding-bottom: 8px; }
   .panel { padding: 12px 12px; border-radius: 16px; }
   .panel h1 { font-size: 1.7rem; }

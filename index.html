@@ -17,12 +17,21 @@
         <span id="hud-mid"></span>
         <span id="hud-right"></span>
       </div>
+      <p id="hint" hidden></p>
       <div id="overlay">
         <div class="panel">
           <h1>Rider Dash</h1>
           <p>Loading…</p>
         </div>
       </div>
+      <div id="pause" hidden>
+        <div class="panel">
+          <h2>Paused</h2>
+          <p>You switched away, so the road is frozen. Nothing can hit you until you come back.</p>
+          <button class="btn green" id="resume" type="button">▶ Resume</button>
+        </div>
+      </div>
+      <button id="mute" type="button" aria-label="Mute sound">🔊</button>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>

@@ -55,4 +55,15 @@ describe('city levels', () => {
   it('ends every city on a night finale', () => {
     for (const c of CITIES) expect(c.levels.at(-1)!.night).toBe(true);
   });
+
+  it('puts the top of the curve on the last area only', () => {
+    expect(LEVELS).toHaveLength(200);
+    expect(CITIES).toHaveLength(8);
+    expect(LEVELS[0].v0).toBe(260);
+    expect(LEVELS[0].goal).toBe(2);
+    const last = LEVELS.at(-1)!;
+    const before = LEVELS.at(-2)!;
+    expect(last.v0).toBeGreaterThan(before.v0);
+    expect(last.density).toBeGreaterThan(before.density);
+  });
 });

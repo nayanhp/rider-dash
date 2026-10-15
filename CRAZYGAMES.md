@@ -32,11 +32,13 @@ The game never talks to `window.CrazyGames` directly. `src/platform/crazygames.t
 | Retry / Next / Ride again, when this break is not already a revive offer | `ad.requestAd("midgame")` |
 | Optional “▶ Revive” on the lose screen, once per run | `ad.requestAd("rewarded")` |
 | Optional “▶ Double coins” on a win or an endless result | `ad.requestAd("rewarded")` |
-| Stars, endless best, anonymous id | `data.getItem` / `data.setItem` |
+| Stars, endless best, anonymous id, mute | `data.getItem` / `data.setItem` |
 
 `gameplayStart` is the first time the player is actually riding, not on the menu. CrazyGames measures initial download up to that first event. The SDK refuses a second `gameplayStart`, `gameplayStop`, or `happytime` inside one second and prints a console error if you try. The adapter keeps the latest of those and sends it once the second has passed, so a crash-and-retry does not spam that error.
 
-While an ad is requested, the UI is blocked (`One moment…`) so the run cannot continue. Audio is muted only in `adStarted`, and restored on `adFinished` or `adError`. `muteAudio` from `game.settings` (and `addSettingsChangeListener`) forces mute and wins over the ad ending. There is no soundtrack yet; `canPlayAudio()` in `src/platform/audio.ts` is the gate every future clip has to pass. `document.documentElement.dataset.audio` is `on` or `muted`.
+While an ad is requested, the UI is blocked (`One moment…`) and the result buttons are inert, so a key cannot start the next run under the ad. If neither callback arrives within two minutes, the request ends as `timeout` and the game continues. Audio mutes only in `adStarted`, and restores on `adFinished`, `adError`, or that timeout. `muteAudio` from `game.settings` (and `addSettingsChangeListener`) forces mute and wins over the in-game speaker button. Music and effects are generated in WebAudio (`src/platform/audio.ts`); every clip checks `canPlayAudio()`. The first tap or key resumes the audio context. `document.documentElement.dataset.audio` is `on` or `muted`.
+
+Switching tabs or leaving the window pauses a live run behind a Resume overlay. That pause does not call `gameplayStop` or `gameplayStart`; CrazyGames already handles focus on its side.
 
 Ads that error (`unfilled`, `adCooldown`, `adblock`, `adsDisabledBasicLaunch`, …) do not grant a reward and do not freeze the game. Rewarded buttons are hidden when an ad blocker is detected or after the SDK reports that ads are disabled, so a Basic Launch build has no dead “watch a video” button. A lose screen that offers revive does not also play a midgame ad. Watching double-coins suppresses the midgame on that same break, so two videos never play back to back.
 
@@ -46,7 +48,7 @@ Menu, Cities, and Areas never request an ad. The main Play button starts the cur
 
 In the submission flow, set progress save to **Yes, using the Data Module from the CrazyGames SDK**. If that toggle is off, the module throws `dataModuleDisabled` and the game keeps the local save instead — cloud sync will not work until the toggle is on.
 
-The adapter copies any existing `rd:stars`, `rd:best`, and `rd:pid` keys into the data module once, and does not overwrite keys the module already has. After that, reads and writes go to the data module only. Guest data stays in the SDK’s own storage and moves to the account when the player signs in; the game does nothing extra for that.
+The adapter copies any existing `rd:stars`, `rd:best`, `rd:pid`, and `rd:muted` keys into the data module once, and does not overwrite keys the module already has. After that, reads and writes go to the data module only. Guest data stays in the SDK’s own storage and moves to the account when the player signs in; the game does nothing extra for that.
 
 ## Local testing
 

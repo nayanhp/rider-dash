@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { canPlayAudio, setAdMuted, setSdkMuted } from './audio';
-import { connectPortal, migrateProgress, resetSdkEmitState, type CrazySDK } from './crazygames';
+import { AD_REQUEST_TIMEOUT_MS, connectPortal, migrateProgress, resetSdkEmitState, type CrazySDK } from './crazygames';
 import { load, save, useStore } from './storage';
 
 function memoryStore() {
@@ -172,6 +172,16 @@ describe('CrazyGames portal', () => {
     await vi.advanceTimersByTimeAsync(1100);
     expect(calls.filter((c) => c === 'gameplayStart')).toEqual(['gameplayStart', 'gameplayStart']);
     vi.useRealTimers();
+  });
+
+  it('releases the game if an ad never calls back', async () => {
+    const { sdk } = fake({ requestAd: () => {} });
+    const portal = await connectPortal(sdk);
+    vi.useFakeTimers();
+    const pending = portal.ads.request('midgame');
+    await vi.advanceTimersByTimeAsync(AD_REQUEST_TIMEOUT_MS);
+    await expect(pending).resolves.toEqual({ ok: false, code: 'timeout' });
+    expect(canPlayAudio()).toBe(true);
   });
 
   it('survives a throwing ad request', async () => {

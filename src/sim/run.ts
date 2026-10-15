@@ -100,6 +100,19 @@ export function speed(s: RunState): number {
   return v0 + (v1 - v0) * Math.min(1, seconds(s) / ramp);
 }
 
+/** A tie does not beat the saved best. */
+export function beatBest(value: number, bestBefore: number): boolean {
+  return value > bestBefore;
+}
+
+/**
+ * The lose screen can still continue this run: a rewarded revive is on offer, or the
+ * rider can pay the coin cost. A win, a second crash, or an empty pocket cannot.
+ */
+export function reviveStillOpen(s: RunState, adOffered: boolean): boolean {
+  return s.status === 'lost' && !s.revived && (adOffered || s.coins >= s.tuning.reviveCost);
+}
+
 /** Endless score: integers only. */
 export function score(s: RunState): number {
   const t = s.tuning;

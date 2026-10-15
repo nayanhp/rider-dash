@@ -5,10 +5,10 @@ Game #1 of the studio. Reference prototype: `prototype/core-game-test.html` (sin
 Background vision doc (wider studio ideas): https://claude.ai/code/artifact/bfccc4b0-814a-41eb-b3c5-971b2c22bd64
 
 ## The game
-A Subway Surfers-style 3D-perspective runner. You are a quick-commerce delivery rider on a scooter in Bengaluru.
+A Subway Surfers-style 3D-perspective runner. You are a quick-commerce delivery rider on a scooter, starting in Bengaluru and riding on through seven more Indian cities.
 - **Controls:** swipe/tap left-right to change between 3 lanes; swipe up to jump. Keyboard arrows + space on web.
 - **Loop:** collect 📦 parcels (carry max 3), ride through green DROP zones to deliver all carried parcels. Collect ₹ coins. Dodge autos, cars, cows (must change lane) and jump potholes/speed breakers. A hit costs a heart and a carried parcel; 3 hearts.
-- **Levels:** 6 hand-tuned levels with delivery goals and a gentle ramp (see `RD_LEVELS` in the prototype): First delivery → Morning rush → Pothole street (jump taught) → Cow crossing → Monsoon evening (rain, sluggish steering) → Midnight cravings (night). Stars = hearts left. Then more levels per Bengaluru neighbourhood.
+- **Levels:** 8 cities × 25 areas = 200 generated levels. Neighbourhoods live in `src/data/cities.json`. Speed, delivery goal, density, and the intro/weather copy come from the curve in `src/data/levels.json` (`cityStep` 0.057143, `areaSpan` 0.6), so the hardest tune is the last area of the last city. The first four Bengaluru areas teach obstacles one at a time (autos, then cars, then jumps, then cows). Rain areas steer slower; night is a visual shift; every city ends on a night finale. Stars = hearts left. The prototype's six hand-tuned roads are reference feel only.
 - **Endless mode:** speed keeps increasing; high score = coins + deliveries + distance.
 - **Rider avatar:** seen from behind, scooter + delivery box showing carried parcels; customisable jacket, helmet, skin. Later: scooter skins, box designs, helmets (cosmetic only).
 - **Feel targets:** 60 fps on budget Android phones, big readable silhouettes, juicy feedback (coin sparkle, delivery burst, screen shake on hit, combo multiplier for back-to-back drops), short sessions (levels 30–90 s).
@@ -36,7 +36,7 @@ A Subway Surfers-style 3D-perspective runner. You are a quick-commerce delivery 
 
 ## Milestones (gate before moving on)
 1. **Core run** — pseudo-3D road, lanes, jump, obstacles, parcels, drop zones, coins, hearts, seeded spawner with tests. Playable on a phone browser.
-2. **Levels + endless + avatar** — the 6 levels from the prototype as config, level select with stars, endless with high score, avatar picker, local save.
+2. **Levels + endless + avatar** — 200 generated city levels, level select with stars, endless with high score, avatar picker, local save.
 3. **Polish** — final art, sounds and music, juice, performance pass on a budget Android phone, onboarding hints.
 4. **Web launch** — portal SDK via `AdService` (revive + double coins), analytics, submit to portals. Gate: day-1 retention ≥ 35%, average session ≥ 5 min.
 5. **Android** — Capacitor + AdMob, cosmetic shop, Play closed test.

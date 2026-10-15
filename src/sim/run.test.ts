@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ENDLESS, LEVELS, TUNING } from './config';
 import { Rng } from './rng';
-import { addObj, airborne, createRun, replay, score, speed, spawnRow, step, type Command, type InputLog } from './run';
+import { addObj, airborne, beatBest, createRun, replay, reviveStillOpen, score, speed, spawnRow, step, type Command, type InputLog } from './run';
 
 const L1 = LEVELS[0];
 const ALL_KINDS = LEVELS[3];
@@ -196,6 +196,23 @@ describe('hits', () => {
     const running = bare();
     step(running, ['revive']);
     expect(running.revived).toBe(false);
+  });
+
+  it('a tied endless score is not a new record, and a revive stays open while it can continue', () => {
+    expect(beatBest(80, 80)).toBe(false);
+    expect(beatBest(81, 80)).toBe(true);
+    const lost = bare();
+    lost.status = 'lost';
+    lost.coins = TUNING.reviveCost;
+    expect(reviveStillOpen(lost, false)).toBe(true);
+    lost.coins = TUNING.reviveCost - 1;
+    expect(reviveStillOpen(lost, true)).toBe(true);
+    expect(reviveStillOpen(lost, false)).toBe(false);
+    lost.revived = true;
+    expect(reviveStillOpen(lost, true)).toBe(false);
+    const won = bare();
+    won.status = 'won';
+    expect(reviveStillOpen(won, true)).toBe(false);
   });
 
   it('replay reproduces a revive on the tick the run was lost', () => {

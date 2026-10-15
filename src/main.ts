@@ -1,16 +1,24 @@
 import './style.css';
+import { attachDebug } from './debug';
+import { hintFor } from './hint';
 import { Input } from './input';
+import { nextHold, type Hold } from './pause';
 import { track } from './platform/analytics';
+import { loadUserMute, muteControl, play, toggleUserMute, unlock, type Sfx } from './platform/audio';
 import { bootPortal, type Portal } from './platform/crazygames';
 import { load, save } from './platform/storage';
 import { Renderer } from './render/renderer';
 import { CITIES, ENDLESS, LEVELS, type City, type LevelConfig } from './sim/config';
 import { cityCleared, cityOf, cityStars, cityUnlocked, currentLevel, isUnlocked, nextLevel, recordStars, reloadProgress, starsFor } from './progress';
-import { createRun, isEndless, meters, score, seconds, step, type InputLog, type RunState } from './sim/run';
+import { beatBest, createRun, isEndless, meters, reviveStillOpen, score, seconds, step, type InputLog, type RunState, type SimEvent } from './sim/run';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!;
 const overlay = document.querySelector<HTMLDivElement>('#overlay')!;
 const stage = document.querySelector<HTMLElement>('#stage')!;
+const pauseEl = document.querySelector<HTMLDivElement>('#pause')!;
+const resumeBtn = document.querySelector<HTMLButtonElement>('#resume')!;
+const hintEl = document.querySelector<HTMLParagraphElement>('#hint')!;
+const muteBtn = document.querySelector<HTMLButtonElement>('#mute')!;
 const hud = {
   root: document.querySelector<HTMLDivElement>('#hud')!,
   left: document.querySelector<HTMLSpanElement>('#hud-left')!,
@@ -24,18 +32,63 @@ const input = new Input(canvas, () => renderer.riderX(run));
 let run: RunState = createRun(LEVELS[0], 1);
 let log: InputLog = [];
 let playing = false;
+let runLive = false;
+let hold: Hold = 'play';
+let blurred = false;
 let portal: Portal;
 let inGameplay = false;
 let adBusy = false;
 let rewardedThisBreak = false;
 let coinsDoubled = false;
 let celebrated = false;
+let resultTracked = false;
 let adNote = '';
 
 function newSeed(): number {
   const a = new Uint32Array(1);
   crypto.getRandomValues(a);
   return a[0];
+}
+
+function pageAway(): boolean {
+  return document.hidden || blurred;
+}
+
+let applyingHold = false;
+/** Pause the sim. A blur latches until Resume, so the road cannot tick before they look. */
+function applyHold(resume = false) {
+  if (applyingHold) return;
+  applyingHold = true;
+  try {
+    hold = nextHold(hold, { runLive, ad: adBusy, pageAway: pageAway(), resume });
+    const simulate = runLive && hold === 'play';
+    if (!simulate) {
+      playing = false;
+      input.enabled = false;
+      input.drain();
+    } else {
+      if (!playing) {
+        last = performance.now();
+        acc = 0;
+      }
+      playing = true;
+      input.drain();
+      if (resume) {
+        input.enabled = false;
+        requestAnimationFrame(() => {
+          if (playing && hold === 'play') input.enabled = true;
+        });
+      } else {
+        input.enabled = true;
+      }
+    }
+    pauseEl.hidden = hold !== 'hidden';
+    if (hold === 'hidden') resumeBtn.focus({ preventScroll: true });
+    updateHint();
+    renderMute();
+  } finally {
+    applyingHold = false;
+  }
 }
 
 function markGameplay(on: boolean) {
@@ -58,17 +111,19 @@ function startRun(cfg: LevelConfig) {
   overlay.hidden = true;
   hud.root.hidden = false;
   input.drain();
-  input.enabled = true;
-  playing = true;
+  runLive = true;
   rewardedThisBreak = false;
   coinsDoubled = false;
   celebrated = false;
+  resultTracked = false;
   adNote = '';
   lastHud = '';
   last = performance.now();
   acc = 0;
+  applyHold();
   markGameplay(true);
   track({ name: 'level_start', level: cfg.id });
+  updateHint();
 }
 
 /**
@@ -86,22 +141,19 @@ async function betweenRuns(go: () => void, withMidgame: boolean) {
 async function requestAd(kind: 'midgame' | 'rewarded'): Promise<boolean> {
   if (adBusy) return false;
   adBusy = true;
-  const wasPlaying = playing;
-  playing = false;
   input.enabled = false;
   stage.classList.add('ad-hold');
+  overlay.inert = true;
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  applyHold();
   let ok = false;
   try {
     ok = (await portal.ads.request(kind)).ok;
   } finally {
     stage.classList.remove('ad-hold');
+    overlay.inert = false;
     adBusy = false;
-    if (wasPlaying) {
-      playing = true;
-      input.enabled = true;
-      last = performance.now();
-      acc = 0;
-    }
+    applyHold();
   }
   if (ok && kind === 'rewarded') rewardedThisBreak = true;
   return ok;
@@ -112,43 +164,59 @@ function resumeRevived(how: 'ad' | 'coins'): boolean {
   log.push([run.tick, cmd]);
   step(run, [cmd]);
   if (run.status !== 'running') return false;
-  if (run.events.length) renderer.onEvents(run, run.events);
+  if (run.events.length) {
+    renderer.onEvents(run, run.events);
+    voice(run.events);
+  }
   overlay.hidden = true;
   hud.root.hidden = false;
   input.drain();
-  input.enabled = true;
-  playing = true;
+  runLive = true;
   rewardedThisBreak = false;
   adNote = '';
   lastHud = '';
   last = performance.now();
   acc = 0;
+  applyHold();
   markGameplay(true);
   return true;
 }
 
+function persistProgress() {
+  if (isEndless(run)) {
+    const s = score(run);
+    if (beatBest(s, load('best', 0))) {
+      save('best', s);
+      celebrate();
+    }
+  } else if (run.status === 'won') {
+    recordStars(run.cfg.id, Math.max(1, run.hearts));
+  }
+}
+
+/** Fired once, when the player leaves the result. A revive is the same run, not an end. */
+function trackResult() {
+  if (resultTracked) return;
+  resultTracked = true;
+  const cfg = run.cfg;
+  const won = run.status === 'won';
+  const stars = won ? Math.max(1, run.hearts) : 0;
+  track({ name: 'level_end', level: cfg.id, result: won ? 'won' : 'lost', stars, time: Math.round(seconds(run)) });
+  if (isEndless(run)) track({ name: 'endless_end', score: score(run) });
+}
+
 function endRun() {
-  playing = false;
-  input.enabled = false;
+  runLive = false;
+  applyHold();
   markGameplay(false);
   rewardedThisBreak = false;
   adNote = '';
   const cfg = run.cfg;
   const won = run.status === 'won';
   const stars = won ? Math.max(1, run.hearts) : 0;
-  track({ name: 'level_end', level: cfg.id, result: won ? 'won' : 'lost', stars, time: Math.round(seconds(run)) });
   const endless = isEndless(run);
   const bestBefore = endless ? load('best', 0) : 0;
-  if (endless) {
-    const s = score(run);
-    if (s > bestBefore) {
-      save('best', s);
-      celebrate();
-    }
-    track({ name: 'endless_end', score: s });
-  } else if (won) {
-    recordStars(cfg.id, stars);
-  }
+  persistProgress();
   const next = !endless && won ? nextLevel(cfg) : undefined;
   const newCity = !!(next && next.cityId !== cfg.cityId);
   if (newCity) celebrate();
@@ -158,7 +226,7 @@ function endRun() {
 
   const showResult = () => {
     const offerAdRevive = run.status === 'lost' && !run.revived && !rewardedThisBreak && portal.ads.rewardedAvailable();
-    const offerCoinRevive = run.status === 'lost' && !run.revived && run.coins >= run.tuning.reviveCost;
+    const offerCoinRevive = reviveStillOpen(run, false);
     const offerDouble = !coinsDoubled && !rewardedThisBreak && run.coins > 0 && portal.ads.rewardedAvailable() && (won || endless);
     // Revive and a midgame ad cannot share this break. Double-coins is optional;
     // taking it sets rewardedThisBreak so Next / Retry will not play a second ad.
@@ -173,10 +241,14 @@ function endRun() {
     const doubled = offerDouble
       ? `<button class="btn green" data-act="double" aria-label="Watch a video to double the coins from this run">▶ Double coins</button>`
       : '';
+    const leave = (go: () => void) => {
+      trackResult();
+      go();
+    };
 
     if (endless) {
       const s = score(run);
-      const record = s > bestBefore || (coinsDoubled && s >= load('best', 0) && s > 0);
+      const record = beatBest(s, bestBefore);
       screen(
         `<h2>${record ? 'New record!' : 'Ride over!'}</h2><div class="big">${s}</div>
         <p>${meters(run)} m · ${run.delivered} delivered · 🪙 ${run.coins}${coinsDoubled ? ' · doubled' : ''}</p>
@@ -186,13 +258,13 @@ function endRun() {
         ${video}${coins}${doubled}
         <button class="btn green" data-act="again" autofocus>↻ Ride again</button></div>`,
         {
-          menu: showMenu,
+          menu: () => leave(showMenu),
           revive: () => void onRevive(showResult),
           coins: () => {
             if (!resumeRevived('coins')) showResult();
           },
           double: () => void onDouble(showResult),
-          again: () => void betweenRuns(() => startRun(cfg), withMidgame),
+          again: () => leave(() => void betweenRuns(() => startRun(cfg), withMidgame)),
         },
       );
       return;
@@ -209,14 +281,14 @@ function endRun() {
       <button class="btn green" data-act="again" ${next ? '' : 'autofocus'}>↻ Retry</button>
       ${next ? `<button class="btn green" data-act="next" autofocus>${newCity ? `${next.city} ▶` : 'Next ▶'}</button>` : ''}</div>`,
       {
-        areas: () => showAreas(cityOf(cfg)),
+        areas: () => leave(() => showAreas(cityOf(cfg))),
         revive: () => void onRevive(showResult),
         coins: () => {
           if (!resumeRevived('coins')) showResult();
         },
         double: () => void onDouble(showResult),
-        again: () => void betweenRuns(() => startRun(cfg), withMidgame),
-        next: () => void betweenRuns(() => next && showBrief(next), withMidgame),
+        again: () => leave(() => void betweenRuns(() => startRun(cfg), withMidgame)),
+        next: () => leave(() => void betweenRuns(() => next && showBrief(next), withMidgame)),
       },
     );
   };
@@ -246,15 +318,9 @@ async function onDouble(redraw: () => void) {
     return;
   }
   track({ name: 'ad_watched', placement: 'double_coins' });
-  run.coins *= run.tuning.coinDoubleMultiplier;
+  run.coins = Math.floor(run.coins * run.tuning.coinDoubleMultiplier);
   coinsDoubled = true;
-  if (isEndless(run)) {
-    const s = score(run);
-    if (s > load('best', 0)) {
-      save('best', s);
-      celebrate();
-    }
-  }
+  persistProgress();
   redraw();
 }
 
@@ -269,6 +335,7 @@ function screen(html: string, acts: Record<string, () => void>, wide = false) {
   overlay.innerHTML = `<div class="panel${wide ? ' wide' : ''}">${html}</div>`;
   overlay.hidden = false;
   hud.root.hidden = true;
+  hintEl.hidden = true;
   overlay.querySelectorAll<HTMLButtonElement>('[data-act]').forEach((b) => {
     const fn = acts[b.dataset.act!];
     if (fn) b.onclick = fn;
@@ -382,6 +449,50 @@ function updateHud() {
   hud.right.textContent = right;
 }
 
+function updateHint() {
+  const text = playing
+    ? hintFor({
+        firstLevel: run.cfg.id === LEVELS[0].id,
+        fresh: starsFor(LEVELS[0].id) === 0,
+        lane: run.lane,
+        carry: run.carry,
+        delivered: run.delivered,
+      })
+    : null;
+  if (!text || hold !== 'play') {
+    hintEl.hidden = true;
+    return;
+  }
+  hintEl.hidden = false;
+  if (hintEl.textContent !== text) hintEl.textContent = text;
+}
+
+function renderMute() {
+  const control = muteControl();
+  muteBtn.textContent = control.muted ? '🔇' : '🔊';
+  muteBtn.disabled = control.locked || adBusy;
+  muteBtn.setAttribute('aria-pressed', control.muted ? 'true' : 'false');
+  muteBtn.setAttribute('aria-label', control.locked ? 'Sound is muted by the site' : control.muted ? 'Unmute sound' : 'Mute sound');
+}
+
+const SFX: Partial<Record<SimEvent['type'], Sfx>> = {
+  jump: 'jump',
+  coin: 'coin',
+  parcel: 'parcel',
+  deliver: 'drop',
+  hit: 'hit',
+  won: 'clear',
+};
+
+function voice(events: readonly SimEvent[]) {
+  const won = events.some((e) => e.type === 'won');
+  for (const e of events) {
+    if (e.type === 'deliver' && won) continue;
+    const name = SFX[e.type];
+    if (name) play(name);
+  }
+}
+
 // Fixed-tick simulation, rendered every animation frame.
 let last = performance.now();
 let acc = 0;
@@ -400,14 +511,17 @@ function frame(now: number) {
       step(run, cmds);
       if (run.events.length) {
         renderer.onEvents(run, run.events);
+        voice(run.events);
         for (const e of run.events) if (e.type === 'hit') track({ name: 'hit', level: run.cfg.id, kind: e.kind });
       }
       if (run.status !== 'running') endRun();
     }
     if (ticks === 6) acc = 0;
     updateHud();
+    updateHint();
   }
-  renderer.render(run, dt);
+  const frozen = hold === 'hidden' || (hold === 'ad' && runLive);
+  renderer.render(run, frozen ? 0 : dt);
   requestAnimationFrame(frame);
 }
 
@@ -416,22 +530,49 @@ function resize() {
 }
 window.addEventListener('resize', resize);
 new ResizeObserver(() => resize()).observe(stage);
-document.addEventListener('visibilitychange', () => {
-  last = performance.now();
-  acc = 0;
+// Tab away freezes a live run. CrazyGames already pauses its own metrics on blur,
+// so this does not send gameplayStop.
+document.addEventListener('visibilitychange', () => applyHold());
+window.addEventListener('blur', () => {
+  blurred = true;
+  applyHold();
 });
+window.addEventListener('focus', () => {
+  blurred = false;
+  applyHold();
+});
+pauseEl.addEventListener('click', () => applyHold(true));
+muteBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (muteBtn.disabled) return;
+  toggleUserMute();
+  unlock();
+  renderMute();
+});
+window.addEventListener('pointerdown', () => unlock(), { passive: true });
+window.addEventListener('keydown', () => unlock());
 // No outbound navigation. CrazyGames hosts the game; links would leave the iframe.
 document.addEventListener('click', (e) => {
   const el = e.target;
   if (el instanceof Element && el.closest('a')) e.preventDefault();
 });
 
-// Exposed for debugging and future replay checks.
-Object.assign(window, { rd: { get run() { return run; }, get log() { return log; } } });
+if (import.meta.env.DEV) {
+  attachDebug(true, window, {
+    get run() {
+      return run;
+    },
+    get log() {
+      return log;
+    },
+  });
+}
 
 async function boot() {
   portal = await bootPortal();
   reloadProgress();
+  loadUserMute();
+  renderMute();
   portal.loadingStop();
   resize();
   track({ name: 'session_start' });
