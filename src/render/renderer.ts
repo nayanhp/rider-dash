@@ -2,14 +2,8 @@
 // Visual-only randomness (particles, rain) lives here and may use Math.random.
 import type { RunState, SimEvent } from '../sim/run';
 import { drawSprite, SPRITES, type SpriteId } from './art';
+import { drawAvatarPose, RIDER_DRAW, type RiderPose } from './riderArt';
 
-export interface Avatar {
-  jacket: string;
-  helmet: string;
-  skin: string;
-}
-
-const DEFAULT_AVATAR: Avatar = { jacket: '#FF5A4E', helmet: '#FFCC2E', skin: '#E3AC7E' };
 const FONT = '"Lilita One","Baloo 2",system-ui,sans-serif';
 const BUILDING_COLORS = ['#F3D9A4', '#A7D9F0', '#FFC2BD', '#C9E6B4', '#E8D2FF'];
 const DRAW_DIST = 2400;
@@ -30,7 +24,6 @@ export class Renderer {
   private flash = 0;
   private lean = 0;
   private lastLx = 1;
-  avatar = DEFAULT_AVATAR;
   reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
   constructor(private canvas: HTMLCanvasElement) {
@@ -307,7 +300,7 @@ export class Renderer {
     const x = this.proj(0, s.lx).x;
     const jt = s.tuning.jumpTicks;
     const hop = s.jumpT > 0 ? Math.sin((1 - s.jumpT / jt) * Math.PI) * 70 : 0;
-    const drawW = SPRITES.rider.draw * this.geo().LW;
+    const drawW = RIDER_DRAW * this.geo().LW;
     const y = yP - hop * (drawW / 96);
 
     c.fillStyle = 'rgba(42,47,90,.22)';
@@ -317,8 +310,8 @@ export class Renderer {
     // Blink while invulnerable
     if (s.invulnT > 0 && Math.floor(s.invulnT / 5) % 2) return;
 
-    const id: SpriteId = this.lean < -0.08 ? 'rider-left' : this.lean > 0.08 ? 'rider-right' : 'rider';
-    drawSprite(c, id, x, y, drawW);
+    const pose: RiderPose = this.lean < -0.08 ? 'left' : this.lean > 0.08 ? 'right' : 'back';
+    drawAvatarPose(c, pose, x, y, drawW);
   }
 
   private drawRain(dt: number) {

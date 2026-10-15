@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.0 — 2026-10-15 · Avatar picker
+
+- Rider look is cosmetic: jacket, helmet and skin, chosen from the design avatar kit
+  (`src/sprites/avatars/`). The default is the kit's baked rider — kerb-red jacket, parcel-yellow
+  helmet, medium skin — on the same red scooter. The front pose is the picker preview only;
+  a run still draws the back and lean poses. Recolouring swaps the three group fills and
+  rasters those poses when the look changes, not every frame.
+- The choice is saved with the rest of progress (`avatar`), including the CrazyGames data
+  module when that module is enabled. Unknown ids fall back to the default part.
+- Menu has a Rider button. Button labels and badges that were still emoji (play, retry, menu,
+  cities, endless, back, pause, rain, night, city unlock) are inline SVG icons in the brand palette.
+- The simulation is unchanged.
+
 ## 0.5.0 — 2026-10-15 · Art pass
 
 - Gameplay objects use the Design & Brand SVGs (rider, lean left/right, parcel, coin, auto, car, cow, pothole, speed breaker, drop pad, tree, house, skyline). Each sprite is rasterised once onto a canvas and drawn with `drawImage`, sized from the lane width. The upright rider swaps to the lean sprites while changing lanes. The word DROP stays canvas text. Night and rain still use the full-screen tint.

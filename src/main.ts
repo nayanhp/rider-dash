@@ -1,4 +1,5 @@
 import './style.css';
+import { avatarChoice, colorsFor, reloadAvatar, setAvatarPart, AVATAR_OPTIONS, type AvatarPart } from './avatar';
 import { attachDebug } from './debug';
 import { hintFor } from './hint';
 import { Input } from './input';
@@ -9,6 +10,8 @@ import { bootPortal, type Portal } from './platform/crazygames';
 import { load, save } from './platform/storage';
 import { loadSprites } from './render/art';
 import { Renderer } from './render/renderer';
+import { frontPreviewUrl, prepareAvatar } from './render/riderArt';
+import { glyph } from './ui/glyphs';
 import { CITIES, ENDLESS, LEVELS, type City, type LevelConfig } from './sim/config';
 import { cityCleared, cityOf, cityStars, cityUnlocked, currentLevel, isUnlocked, nextLevel, recordStars, reloadProgress, starsFor } from './progress';
 import { beatBest, createRun, isEndless, meters, reviveStillOpen, score, seconds, step, type InputLog, type RunState, type SimEvent } from './sim/run';
@@ -62,6 +65,9 @@ const muteBtn = document.querySelector<HTMLButtonElement>('#mute')!;
 const muteIcon = document.querySelector<HTMLImageElement>('#mute-icon')!;
 muteIcon.src = soundOnUrl;
 const hudPause = document.querySelector<HTMLButtonElement>('#hud-pause')!;
+resumeBtn.innerHTML = `${glyph('play')} Resume`;
+restartBtn.innerHTML = `${glyph('retry')} Restart`;
+hudPause.innerHTML = glyph('pause');
 const hud = {
   root: document.querySelector<HTMLDivElement>('#hud')!,
   left: document.querySelector<HTMLSpanElement>('#hud-left')!,
@@ -149,10 +155,10 @@ function beginCountdown() {
 function fillPause() {
   if (isEndless(run)) {
     pauseWhere.textContent = 'Endless';
-    leaveBtn.textContent = '☰ Menu';
+    leaveBtn.innerHTML = `${glyph('menu')} Menu`;
   } else {
     pauseWhere.textContent = `${run.cfg.city ?? ''} · ${run.cfg.name}`.replace(/^ · /, '');
-    leaveBtn.textContent = '☰ Areas';
+    leaveBtn.innerHTML = `${glyph('menu')} Areas`;
   }
   pauseNote.textContent = pageAway() && !manualPause
     ? 'You switched away, so the road is frozen until you resume.'
@@ -382,13 +388,13 @@ function endRun() {
     const withMidgame = !offerAdRevive;
     const note = adNote ? `<p class="ad-note">${adNote}</p>` : '';
     const video = offerAdRevive
-      ? `<button class="btn blue" data-act="revive" aria-label="Watch a video to revive with one heart">▶ Revive</button>`
+      ? `<button class="btn blue" data-act="revive" aria-label="Watch a video to revive with one heart">${glyph('play')} Revive</button>`
       : '';
     const coins = offerCoinRevive
-      ? `<button class="btn yellow" data-act="coins">Revive · ${run.tuning.reviveCost} 🪙</button>`
+      ? `<button class="btn yellow" data-act="coins">Revive · ${run.tuning.reviveCost} ${ico(hudCoinUrl)}</button>`
       : '';
     const doubled = offerDouble
-      ? `<button class="btn yellow" data-act="double" aria-label="Watch a video to double the coins from this run">▶ Double coins</button>`
+      ? `<button class="btn yellow" data-act="double" aria-label="Watch a video to double the coins from this run">${glyph('play')} Double coins</button>`
       : '';
     const leave = (go: () => void) => {
       trackResult();
@@ -411,9 +417,9 @@ function endRun() {
         ${offerAdRevive ? '<p class="small-print">Revive is optional. Watch a short video, spend coins, or ride again.</p>' : ''}
         ${note}
         ${above}
-        <div class="row"><button class="btn yellow" data-act="menu">☰ Menu</button>
+        <div class="row"><button class="btn yellow" data-act="menu">${glyph('menu')} Menu</button>
         ${coins}
-        <button class="btn green" data-act="again" autofocus>↻ Ride again</button></div>`,
+        <button class="btn green" data-act="again" autofocus>${glyph('retry')} Ride again</button></div>`,
         {
           menu: () => leave(showMenu),
           revive: () => void onRevive(showResult),
@@ -437,14 +443,14 @@ function endRun() {
         <span class="chip">${ico(hudCoinUrl)} <b id="coin-count">0</b>${coinsDoubled ? ' ×2' : ''}</span>
         <span class="chip">${Math.round(seconds(run))}s</span>
       </div>
-      ${newCity ? `<p class="unlock">${cfg.city} complete! <b>${next?.city}</b> unlocked.</p>` : ''}
+      ${newCity ? `<p class="unlock">${glyph('unlock')}<span>${cfg.city} complete! <b>${next?.city}</b> unlocked.</span></p>` : ''}
       ${offerAdRevive ? '<p class="small-print">Revive is optional. Watch a short video, spend coins, or retry.</p>' : ''}
       ${note}
       ${above}
-      <div class="row"><button class="btn yellow" data-act="areas">☰ Areas</button>
+      <div class="row"><button class="btn yellow" data-act="areas">${glyph('menu')} Areas</button>
       ${coins}
-      <button class="btn green" data-act="again" ${next ? '' : 'autofocus'}>↻ Retry</button>
-      ${next ? `<button class="btn green" data-act="next" autofocus>${newCity ? `${next.city} ▶` : 'Next ▶'}</button>` : ''}</div>`,
+      <button class="btn green" data-act="again" ${next ? '' : 'autofocus'}>${glyph('retry')} Retry</button>
+      ${next ? `<button class="btn green" data-act="next" autofocus>${glyph('next')} ${newCity ? next.city : 'Next'}</button>` : ''}</div>`,
       {
         areas: () => leave(() => showAreas(cityOf(cfg))),
         revive: () => void onRevive(showResult),
@@ -580,9 +586,10 @@ function showMenu() {
     <p class="where">${cur.city} · ${cur.name}</p>
     <div class="tip">${cur.tip}</div>
     <div class="col">
-      <button class="btn green" data-act="play" autofocus>▶ Play · ${cur.name}</button>
-      <button class="btn red" data-act="endless">♾ Endless · best ${load('best', 0)}</button>
-      <button class="btn blue" data-act="cities">🗺 Cities</button>
+      <button class="btn green" data-act="play" autofocus>${glyph('play')} Play · ${cur.name}</button>
+      <button class="btn red" data-act="endless">${glyph('endless')} Endless · best ${load('best', 0)}</button>
+      <button class="btn blue" data-act="cities">${glyph('map')} Cities</button>
+      <button class="btn yellow" data-act="rider">${glyph('rider')} Rider</button>
     </div>`,
     {
       play: () => {
@@ -597,8 +604,53 @@ function showMenu() {
         markSeen();
         startRun(ENDLESS);
       },
+      rider: () => {
+        markSeen();
+        showRider();
+      },
     },
   );
+}
+
+function swatchRow(part: AvatarPart): string {
+  const selected = avatarChoice()[part];
+  return AVATAR_OPTIONS[part].map((opt) =>
+    `<button type="button" class="swatch" data-part="${part}" data-id="${opt.id}" aria-pressed="${selected === opt.id}" aria-label="${opt.name}" style="background:${opt.color}"></button>`,
+  ).join('');
+}
+
+function showRider() {
+  backdrop(currentLevel());
+  const paint = () => {
+    const colors = colorsFor(avatarChoice());
+    const preview = overlay.querySelector<HTMLImageElement>('.rider-preview');
+    if (preview) preview.src = frontPreviewUrl(colors);
+    overlay.querySelectorAll<HTMLButtonElement>('.swatch').forEach((b) => {
+      const part = b.dataset.part as AvatarPart;
+      b.setAttribute('aria-pressed', String(avatarChoice()[part] === b.dataset.id));
+    });
+    void prepareAvatar(colors);
+  };
+  screen(
+    `<div class="bar"><button class="btn small yellow" data-act="back" aria-label="Menu">${glyph('back')}</button><h2>Your rider</h2><span></span></div>
+    <img class="rider-preview" alt="Your rider, from the front" width="128" height="160">
+    <p class="small-print">Jacket, helmet and skin. The scooter stays red.</p>
+    <fieldset class="part"><legend>Jacket</legend><div class="swatches">${swatchRow('jacket')}</div></fieldset>
+    <fieldset class="part"><legend>Helmet</legend><div class="swatches">${swatchRow('helmet')}</div></fieldset>
+    <fieldset class="part"><legend>Skin</legend><div class="swatches">${swatchRow('skin')}</div></fieldset>
+    <div class="col"><button class="btn green" data-act="back" autofocus>Done</button></div>`,
+    { back: showMenu },
+  );
+  overlay.querySelectorAll<HTMLButtonElement>('.swatch').forEach((b) => {
+    b.onclick = () => {
+      const part = b.dataset.part as AvatarPart;
+      const id = b.dataset.id;
+      if (!id) return;
+      setAvatarPart(part, id);
+      paint();
+    };
+  });
+  paint();
 }
 
 function showCities() {
@@ -615,7 +667,7 @@ function showCities() {
   const acts: Record<string, () => void> = { back: showMenu };
   CITIES.forEach((c, i) => (acts[`c${i}`] = () => showAreas(c)));
   screen(
-    `<div class="bar"><button class="btn small yellow" data-act="back" aria-label="Back">◀</button><h2>Cities</h2><span></span></div>
+    `<div class="bar"><button class="btn small yellow" data-act="back" aria-label="Back">${glyph('back')}</button><h2>Cities</h2><span></span></div>
     <div class="cities">${cards}</div>`,
     acts,
     true,
@@ -628,7 +680,7 @@ function showAreas(city: City) {
   const tiles = city.levels.map((l, i) => {
     const open = isUnlocked(l);
     const s = starsFor(l.id);
-    const badge = l.rain ? '🌧️' : l.night ? '🌙' : '';
+    const badge = [l.rain ? glyph('rain') : '', l.night ? glyph('night') : ''].join('');
     return `<button class="area${l.id === cur.id ? ' current' : ''}${s ? ' done' : ''}" data-act="a${i}" ${open ? '' : 'disabled'}
       aria-label="${i + 1}. ${l.name}${open ? `, ${s} stars` : ', locked'}">
       <span class="area-num">${open ? i + 1 : ico(lockUrl)}</span>
@@ -640,7 +692,7 @@ function showAreas(city: City) {
   city.levels.forEach((l, i) => (acts[`a${i}`] = () => showBrief(l)));
   const mark = CITY_ICON[city.id];
   screen(
-    `<div class="bar"><button class="btn small yellow" data-act="back" aria-label="All cities">◀</button>
+    `<div class="bar"><button class="btn small yellow" data-act="back" aria-label="All cities">${glyph('back')}</button>
       <h2>${mark ? `<img class="city-mark" src="${mark}" alt="">` : ''}${city.name}</h2><span class="bar-prog">${cityCleared(city)}/${city.levels.length}</span></div>
     <p class="tag">${city.tagline}</p>
     <div class="areas">${tiles}</div>`,
@@ -653,15 +705,16 @@ function showAreas(city: City) {
 function showBrief(l: LevelConfig) {
   backdrop(l);
   const n = cityOf(l).levels.indexOf(l) + 1;
-  const badges = [l.rain && '🌧️ Rain', l.night && '🌙 Night'].filter(Boolean).join(' · ');
+  const badges = [l.rain && `${glyph('rain')} Rain`, l.night && `${glyph('night')} Night`].filter(Boolean)
+    .map((b) => `<span class="badge">${b}</span>`).join('');
   screen(
     `<p class="where">${l.city} · Area ${n}</p><h2>${l.name}</h2>
     <p class="goal">Deliver <b>${l.goal}</b> parcels</p>
     ${badges ? `<p class="badges">${badges}</p>` : ''}
     <div class="tip">${l.tip}</div>
     <p class="small-print">Lose all 3 hearts and the run ends. Finish with more hearts for more stars.</p>
-    <div class="row"><button class="btn yellow" data-act="back">◀ Areas</button>
-    <button class="btn green" data-act="go" autofocus>▶ Ride</button></div>`,
+    <div class="row"><button class="btn yellow" data-act="back">${glyph('back')} Areas</button>
+    <button class="btn green" data-act="go" autofocus>${glyph('play')} Ride</button></div>`,
     { back: () => showAreas(cityOf(l)), go: () => startRun(l) },
   );
 }
@@ -872,16 +925,18 @@ if (import.meta.env.DEV) {
 
 async function boot() {
   portal = await bootPortal();
+  reloadProgress();
+  reloadAvatar();
   const fonts = document.fonts;
   await Promise.race([
     Promise.all([
       loadSprites(),
+      prepareAvatar(colorsFor(avatarChoice())),
       fonts?.load('16px "Lilita One"'),
       fonts?.load('700 16px "Baloo 2"'),
     ]).catch((err) => console.error(err)),
     new Promise((resolve) => setTimeout(resolve, 2500)),
   ]);
-  reloadProgress();
   loadUserMute();
   renderMute();
   portal.loadingStop();

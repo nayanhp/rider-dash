@@ -278,10 +278,12 @@ html, body {
 .big-stars .star:nth-child(3) { animation-delay: 400ms; }
 .where { margin: 0; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; opacity: 0.7; }
 .goal { font-size: 1.15rem; }
-.badges { font-size: 0.95rem; }
+.badges { display: flex; gap: 12px; justify-content: center; align-items: center; font-size: 0.95rem; }
+.badge { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; }
+.badge svg, .unlock svg { width: 18px; height: 18px; display: block; flex: none; }
 .tip { background: #fff1c9; border-radius: 12px; padding: 10px 12px; margin: 10px 0; line-height: 1.4; }
 .small-print { font-size: 0.85rem; opacity: 0.75; }
-.unlock { background: #e3f8d8; border-radius: 12px; padding: 8px 10px; }
+.unlock { display: flex; align-items: center; justify-content: center; gap: 8px; background: #e3f8d8; border-radius: 12px; padding: 8px 10px; }
 .stats { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 12px 0; }
 .chip {
   display: inline-flex;
@@ -307,11 +309,13 @@ html, body {
 .col .btn:nth-child(1) { animation-delay: 60ms; }
 .col .btn:nth-child(2) { animation-delay: 120ms; }
 .col .btn:nth-child(3) { animation-delay: 180ms; }
+.col .btn:nth-child(4) { animation-delay: 240ms; }
 .col .btn.green { height: 64px; font-size: 1.35rem; }
 .stack { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 .stack .btn { width: 100%; }
 
 .bar { display: grid; grid-template-columns: 48px 1fr 48px; align-items: center; gap: 6px; margin-bottom: 4px; }
+.bar .btn { width: 100%; padding: 0; }
 .bar h2 { margin: 0; font-size: 1.7rem; }
 .bar h2 .city-mark { width: 36px; height: 36px; vertical-align: -8px; margin-right: 4px; }
 .bar-prog { font-weight: 800; font-size: 0.95rem; }
@@ -346,7 +350,7 @@ html, body {
 .area-num img { width: 22px; height: 22px; display: block; }
 .area-name { font-size: 0.78rem; line-height: 1.15; text-align: center; }
 .area-meta { display: flex; gap: 4px; align-items: center; min-height: 1em; }
-.badge { font-size: 0.8rem; }
+.area-meta .badge svg { width: 16px; height: 16px; }
 
 .row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 14px; }
 .row .btn { flex: 1 1 140px; }
@@ -380,6 +384,10 @@ html, body {
 
 .btn {
   --shade: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   font: inherit;
   font-size: 1.1rem;
   font-weight: 800;
@@ -407,7 +415,24 @@ html, body {
 .btn.red { --shade: var(--red-d); background: var(--red); }
 .btn.blue { --shade: var(--blue-d); background: var(--blue); }
 .btn.small { min-height: 48px; padding: 6px 12px; font-size: 1rem; }
-.btn img { width: 18px; height: 18px; vertical-align: -3px; }
+.btn img, .btn svg.ico { width: 20px; height: 20px; flex: none; display: block; }
+#hud-pause svg { width: 16px; height: 16px; display: block; }
+
+.rider-preview { width: 128px; height: 160px; display: block; margin: 2px auto 0; }
+.part { border: 0; margin: 12px 0 0; padding: 0; }
+.part legend { font-weight: 800; font-size: 0.95rem; margin-bottom: 6px; }
+.swatches { display: flex; gap: 10px; justify-content: center; }
+.swatch {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 2px var(--ink), 0 3px 0 rgba(42, 47, 90, 0.18);
+  cursor: pointer;
+}
+.swatch[aria-pressed="true"] { outline: 3px solid var(--green-d); outline-offset: 3px; }
+.swatch:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
 @media (hover: hover) and (pointer: fine) {
   .btn:hover:not(:disabled) { filter: brightness(1.06); transform: translateY(-1px); }
