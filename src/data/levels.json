@@ -1,0 +1,11 @@
+{
+  "levels": [
+    { "id": "l1", "name": "First delivery", "tip": "Tap left or right of your rider to change lanes. Grab a 📦, then ride through a green DROP zone.", "goal": 2, "v0": 260, "v1": 360, "ramp": 45, "density": 0.15, "kinds": ["auto"] },
+    { "id": "l2", "name": "Morning rush", "tip": "More autos and cars on the road. Keep your parcels safe.", "goal": 3, "v0": 290, "v1": 400, "ramp": 45, "density": 0.3, "kinds": ["auto", "car"] },
+    { "id": "l3", "name": "Pothole street", "tip": "Swipe up (or press ⬆) to jump over potholes and speed breakers.", "goal": 4, "v0": 310, "v1": 430, "ramp": 45, "density": 0.35, "kinds": ["auto", "car", "hole", "bump"] },
+    { "id": "l4", "name": "Cow crossing", "tip": "Cows can't be jumped. Change lanes!", "goal": 5, "v0": 330, "v1": 470, "ramp": 45, "density": 0.42, "kinds": ["auto", "car", "hole", "bump", "cow"] },
+    { "id": "l5", "name": "Monsoon evening", "tip": "Rain slows your lane changes. Move early.", "goal": 6, "v0": 340, "v1": 500, "ramp": 45, "density": 0.48, "kinds": ["auto", "car", "hole", "bump", "cow"], "rain": true },
+    { "id": "l6", "name": "Midnight cravings", "tip": "Night shift. The fastest run in Koramangala.", "goal": 8, "v0": 360, "v1": 540, "ramp": 45, "density": 0.55, "kinds": ["auto", "car", "hole", "bump", "cow"], "night": true }
+  ],
+  "endless": { "id": "endless", "name": "Endless", "tip": "How far can you go? It never stops getting faster.", "v0": 300, "v1": 800, "ramp": 90, "density": 0.5, "kinds": ["auto", "car", "hole", "bump", "cow"] }
+}
