@@ -4,7 +4,7 @@ import { JUMPABLE, TUNING, type LevelConfig, type ObjKind, type ObstacleKind, ty
 import { Rng } from './rng';
 
 export const LANES = 3;
-export type Command = 'left' | 'right' | 'jump';
+export type Command = 'left' | 'right' | 'jump' | 'revive' | 'reviveCoins';
 export type RunStatus = 'running' | 'won' | 'lost';
 
 export interface Obj {
@@ -23,7 +23,8 @@ export type SimEvent =
   | { type: 'hit'; kind: ObstacleKind; lostParcel: boolean }
   | { type: 'jump' }
   | { type: 'won' }
-  | { type: 'lost' };
+  | { type: 'lost' }
+  | { type: 'revive' };
 
 export interface RunState {
   cfg: LevelConfig;
@@ -50,6 +51,8 @@ export interface RunState {
   objs: Obj[];
   nextId: number;
   status: RunStatus;
+  /** A run can be revived once. Further revive commands do nothing. */
+  revived: boolean;
   /** Events produced by the most recent step. */
   events: SimEvent[];
 }
@@ -84,6 +87,7 @@ export function createRun(cfg: LevelConfig, seed: number, opts: RunOptions = {})
     objs: [],
     nextId: 1,
     status: 'running',
+    revived: false,
     events: [],
   };
 }
@@ -186,13 +190,32 @@ function collide(s: RunState, o: Obj) {
   }
 }
 
+/** Continue a lost run once, with invulnerability and the killing obstacle cleared. */
+function tryRevive(s: RunState, payCoins: boolean) {
+  if (s.status !== 'lost' || s.revived) return;
+  if (payCoins && s.coins < s.tuning.reviveCost) return;
+  if (payCoins) s.coins -= s.tuning.reviveCost;
+  s.revived = true;
+  s.status = 'running';
+  s.hearts = s.tuning.reviveHearts;
+  s.invulnT = s.tuning.invulnTicks;
+  for (const o of s.objs) {
+    if (!o.done && Math.abs(o.z - s.dist) <= s.tuning.hitWindow) o.done = true;
+  }
+  s.events.push({ type: 'revive' });
+}
+
 /** Advance one fixed tick. Commands are applied before movement. */
 export function step(s: RunState, cmds: readonly Command[] = []) {
   s.events = [];
+  for (const c of cmds) {
+    if (c === 'revive') tryRevive(s, false);
+    else if (c === 'reviveCoins') tryRevive(s, true);
+  }
   if (s.status !== 'running') return;
   const t = s.tuning;
   const dt = 1 / t.tickRate;
-  for (const c of cmds) applyCommand(s, c);
+  for (const c of cmds) if (c === 'left' || c === 'right' || c === 'jump') applyCommand(s, c);
 
   s.dist += speed(s) * dt;
   s.tick++;
@@ -228,10 +251,15 @@ export type InputLog = Array<[tick: number, cmd: Command]>;
 export function replay(cfg: LevelConfig, seed: number, log: InputLog, maxTicks: number, opts?: RunOptions): RunState {
   const s = createRun(cfg, seed, opts);
   let i = 0;
-  while (s.status === 'running' && s.tick < maxTicks) {
+  while (s.tick < maxTicks) {
     const cmds: Command[] = [];
     while (i < log.length && log[i][0] === s.tick) cmds.push(log[i++][1]);
+    const before = s.tick;
+    const revive = cmds.some((c) => c === 'revive' || c === 'reviveCoins');
+    if (s.status !== 'running' && !revive) break;
     step(s, cmds);
+    // A failed revive does not advance the tick; don't spin on it.
+    if (s.tick === before) break;
   }
   return s;
 }

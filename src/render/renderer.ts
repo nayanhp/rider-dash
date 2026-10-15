@@ -91,6 +91,9 @@ export class Renderer {
         this.burst(x, g.yP - 40, '#FF5A4E', 16);
         this.popup(x, py, e.lostParcel ? 'Parcel dropped!' : 'Ouch!', '#E0392E');
         navigator.vibrate?.(80);
+      } else if (e.type === 'revive') {
+        this.popup(x, py, 'Revived!', '#3A9A1E');
+        this.burst(x, py + 20, '#5DD039', 18);
       }
     }
   }

@@ -37,6 +37,7 @@ export class Input {
       this.start = null;
     });
     target.addEventListener('pointercancel', () => (this.start = null));
+    target.addEventListener('contextmenu', (e) => e.preventDefault());
     window.addEventListener('keydown', (e) => {
       const cmd = KEYS[e.key];
       if (!cmd || e.repeat || !this.enabled) return;

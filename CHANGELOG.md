@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0 — 2026-10-15 · CrazyGames submission build
+
+- HTML5 SDK v3 adapter (`src/platform/crazygames.ts`): init, loading start/stop, gameplay start/stop around a real run, happy time on a new endless record or a cleared city. Falls back to a no-op when the SDK is missing or disabled.
+- Midgame ads between runs (Retry / Next / Ride again). Rewarded revive once per run, and optional double coins. The UI blocks and audio stays muted while an ad plays. No ad on menu or city navigation, and no midgame on a break that already offers revive.
+- Progress (stars, endless best, player id) goes through the SDK data module, with a one-time copy from local storage. Local storage remains the fallback off CrazyGames.
+- `npm run zip` writes `rider-dash-crazygames.zip` for the developer portal. This build is 3 files, 39,271 bytes (0.037 MB), under the 20 MB / 50 MB / 250 MB and 1500-file caps. See `CRAZYGAMES.md`.
+- Play on the main menu starts the current neighbourhood in one click. Revive is a logged sim command, so a replay stays deterministic.
+
 ## 0.2.0 — 2026-10-15 · Cities and areas
 
 - Levels are now city → area: 8 cities (Bengaluru, Mumbai, Delhi, Hyderabad, Chennai, Pune,

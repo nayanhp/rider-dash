@@ -10,6 +10,7 @@ npm install
 npm run dev      # http://localhost:5173, also on your Wi-Fi so you can open it on a phone
 npm test         # simulation unit tests (Vitest)
 npm run build    # type-check + production build into dist/
+npm run zip      # production build + rider-dash-crazygames.zip (see CRAZYGAMES.md)
 ```
 
 Open `http://localhost:5173/?unlock` to play any level without clearing the ones before it.

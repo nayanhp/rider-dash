@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#4FB3F6" />
     <title>Rider Dash</title>
+    <!-- CrazyGames HTML5 SDK v3. Loaded before the game; missing or blocked is fine. -->
+    <script data-cg-sdk src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛵</text></svg>" />
   </head>
   <body>
@@ -15,7 +17,12 @@
         <span id="hud-mid"></span>
         <span id="hud-right"></span>
       </div>
-      <div id="overlay"></div>
+      <div id="overlay">
+        <div class="panel">
+          <h1>Rider Dash</h1>
+          <p>Loading…</p>
+        </div>
+      </div>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>

@@ -3,16 +3,28 @@
 import { load, save } from './platform/storage';
 import { CITIES, LEVELS, type City, type LevelConfig } from './sim/config';
 
-const stars: Record<string, number> = load('stars', {});
+// Loaded on first use, and again after the CrazyGames data module is installed,
+// so a save never reads localStorage before the portal store is ready.
+let stars: Record<string, number> | null = null;
 const unlockAll = new URLSearchParams(location.search).has('unlock');
 const indexOf = new Map(LEVELS.map((l, i) => [l.id, i]));
 
-export const starsFor = (id: string) => stars[id] ?? 0;
+function table(): Record<string, number> {
+  if (!stars) stars = load('stars', {});
+  return stars;
+}
+
+/** Read progress again. Call after the storage backend changes. */
+export function reloadProgress() {
+  stars = load('stars', {});
+}
+
+export const starsFor = (id: string) => table()[id] ?? 0;
 
 export function recordStars(id: string, n: number) {
   if (n <= starsFor(id)) return;
-  stars[id] = n;
-  save('stars', stars);
+  table()[id] = n;
+  save('stars', table());
 }
 
 export function isUnlocked(level: LevelConfig): boolean {

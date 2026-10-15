@@ -1,5 +1,6 @@
-// Fixed analytics events from day one. Events are buffered here; a real sink (portal SDK
-// or our own endpoint) plugs in at milestone 4 without changing call sites.
+// Fixed analytics events from day one. The production sink is a no-op: CrazyGames
+// records its own metrics, and sending player data anywhere else would need a privacy
+// notice. A portal or our own endpoint can replace the sink later without changing call sites.
 import { load, save } from './storage';
 
 export type AnalyticsEvent =
@@ -17,11 +18,13 @@ export interface AnalyticsSink {
 
 /** Stable anonymous player id, kept across sessions where storage allows. */
 function playerId(): string {
-  let id = load<string | null>('pid', null);
-  if (!id) {
-    id = crypto.randomUUID?.() ?? `p${Date.now().toString(36)}${Math.floor(Math.random() * 1e9).toString(36)}`;
-    save('pid', id);
+  if (id) return id;
+  let stored = load<string | null>('pid', null);
+  if (!stored) {
+    stored = crypto.randomUUID?.() ?? `p${Date.now().toString(36)}${Math.floor(Math.random() * 1e9).toString(36)}`;
+    save('pid', stored);
   }
+  id = stored;
   return id;
 }
 
@@ -32,7 +35,7 @@ const consoleSink: AnalyticsSink = {
 };
 
 let sink: AnalyticsSink = consoleSink;
-const id = playerId();
+let id: string | null = null;
 
 export const setAnalyticsSink = (s: AnalyticsSink) => (sink = s);
-export const track = (e: AnalyticsEvent) => sink.send({ ...e, playerId: id, at: Date.now() });
+export const track = (e: AnalyticsEvent) => sink.send({ ...e, playerId: playerId(), at: Date.now() });
