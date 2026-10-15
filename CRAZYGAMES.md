@@ -16,7 +16,7 @@ npm run zip
 - Total upload ≤ 250 MB
 - ≤ 1500 files
 
-Current production build (`npm run zip`, 15 Oct 2026): **3 files, 39,556 bytes (0.038 MB)** uncompressed. That is the whole initial download apart from the SDK script CrazyGames hosts. It is under both the 50 MB cap and the 20 MB mobile-homepage cap, and under the 1500-file cap. The SDK itself is not in the zip; `index.html` loads it from `https://sdk.crazygames.com/crazygames-sdk-v3.js`.
+Current production build (`npm run zip`, 15 Oct 2026): **7 files, 170,374 bytes (0.162 MB)** uncompressed. That is the whole initial download apart from the SDK script CrazyGames hosts. Fonts are self-hosted woff2 files inside the zip (no Google Fonts request). It is under both the 50 MB cap and the 20 MB mobile-homepage cap, and under the 1500-file cap. The SDK itself is not in the zip; `index.html` loads it from `https://sdk.crazygames.com/crazygames-sdk-v3.js`.
 
 ## What the game calls
 

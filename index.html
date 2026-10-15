@@ -7,16 +7,23 @@
     <title>Rider Dash</title>
     <!-- CrazyGames HTML5 SDK v3. Loaded before the game; missing or blocked is fine. -->
     <script data-cg-sdk src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛵</text></svg>" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%231B1F45'/><circle cx='32' cy='28' r='14' fill='%23FFCC2E'/><rect x='18' y='40' width='28' height='10' rx='4' fill='%23FF5A4E'/></svg>" />
   </head>
   <body>
     <main id="stage">
       <canvas id="game" aria-label="Rider Dash game"></canvas>
       <div id="hud" hidden>
-        <span id="hud-left"></span>
+        <div class="hud-cluster">
+          <span id="hud-left"></span>
+          <div id="hud-slots"></div>
+        </div>
         <span id="hud-mid"></span>
-        <span id="hud-right"></span>
+        <div class="hud-cluster hud-end">
+          <span id="hud-right"></span>
+          <button id="hud-pause" type="button" aria-label="Pause">II</button>
+        </div>
       </div>
+      <p id="combo" hidden></p>
       <p id="hint" hidden></p>
       <div id="overlay">
         <div class="panel">
@@ -26,12 +33,18 @@
       </div>
       <div id="pause" hidden>
         <div class="panel">
+          <p class="where" id="pause-where"></p>
           <h2>Paused</h2>
-          <p>You switched away, so the road is frozen. Nothing can hit you until you come back.</p>
-          <button class="btn green" id="resume" type="button">▶ Resume</button>
+          <p id="pause-note">The road is frozen until you resume.</p>
+          <div id="count" hidden aria-live="polite"></div>
+          <div class="col" id="pause-actions">
+            <button class="btn green" id="resume" type="button">▶ Resume</button>
+            <button class="btn blue" id="restart" type="button">↻ Restart</button>
+            <button class="btn yellow" id="pause-leave" type="button">☰ Areas</button>
+          </div>
         </div>
       </div>
-      <button id="mute" type="button" aria-label="Mute sound">🔊</button>
+      <button id="mute" type="button" aria-label="Mute sound"><img id="mute-icon" alt="" width="24" height="24" /></button>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>

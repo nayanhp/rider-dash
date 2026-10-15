@@ -7,23 +7,67 @@ import { track } from './platform/analytics';
 import { loadUserMute, muteControl, play, toggleUserMute, unlock, type Sfx } from './platform/audio';
 import { bootPortal, type Portal } from './platform/crazygames';
 import { load, save } from './platform/storage';
+import { loadSprites } from './render/art';
 import { Renderer } from './render/renderer';
 import { CITIES, ENDLESS, LEVELS, type City, type LevelConfig } from './sim/config';
 import { cityCleared, cityOf, cityStars, cityUnlocked, currentLevel, isUnlocked, nextLevel, recordStars, reloadProgress, starsFor } from './progress';
 import { beatBest, createRun, isEndless, meters, reviveStillOpen, score, seconds, step, type InputLog, type RunState, type SimEvent } from './sim/run';
+import logoUrl from './assets/logo.png';
+import parcelUrl from './sprites/parcel.svg';
+import hudCoinUrl from './sprites/hud-coin.svg';
+import heartFullUrl from './sprites/hud-heart-full.svg';
+import heartEmptyUrl from './sprites/hud-heart-empty.svg';
+import slotFullUrl from './sprites/hud-slot-full.svg';
+import slotEmptyUrl from './sprites/hud-slot-empty.svg';
+import flagUrl from './sprites/hud-flag.svg';
+import soundOnUrl from './sprites/hud-sound-on.svg';
+import soundOffUrl from './sprites/hud-sound-off.svg';
+import starFullUrl from './sprites/star-full.svg';
+import starEmptyUrl from './sprites/star-empty.svg';
+import lockUrl from './sprites/lock.svg';
+import cityBengaluru from './sprites/city-bengaluru.svg';
+import cityMumbai from './sprites/city-mumbai.svg';
+import cityDelhi from './sprites/city-delhi.svg';
+import cityHyderabad from './sprites/city-hyderabad.svg';
+import cityChennai from './sprites/city-chennai.svg';
+import cityPune from './sprites/city-pune.svg';
+import cityKolkata from './sprites/city-kolkata.svg';
+import cityAhmedabad from './sprites/city-ahmedabad.svg';
+
+const CITY_ICON: Record<string, string> = {
+  bengaluru: cityBengaluru,
+  mumbai: cityMumbai,
+  delhi: cityDelhi,
+  hyderabad: cityHyderabad,
+  chennai: cityChennai,
+  pune: cityPune,
+  kolkata: cityKolkata,
+  ahmedabad: cityAhmedabad,
+};
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!;
 const overlay = document.querySelector<HTMLDivElement>('#overlay')!;
 const stage = document.querySelector<HTMLElement>('#stage')!;
 const pauseEl = document.querySelector<HTMLDivElement>('#pause')!;
 const resumeBtn = document.querySelector<HTMLButtonElement>('#resume')!;
+const restartBtn = document.querySelector<HTMLButtonElement>('#restart')!;
+const leaveBtn = document.querySelector<HTMLButtonElement>('#pause-leave')!;
+const pauseWhere = document.querySelector<HTMLElement>('#pause-where')!;
+const pauseNote = document.querySelector<HTMLElement>('#pause-note')!;
+const pauseActions = document.querySelector<HTMLElement>('#pause-actions')!;
+const countEl = document.querySelector<HTMLElement>('#count')!;
 const hintEl = document.querySelector<HTMLParagraphElement>('#hint')!;
+const comboEl = document.querySelector<HTMLElement>('#combo')!;
 const muteBtn = document.querySelector<HTMLButtonElement>('#mute')!;
+const muteIcon = document.querySelector<HTMLImageElement>('#mute-icon')!;
+muteIcon.src = soundOnUrl;
+const hudPause = document.querySelector<HTMLButtonElement>('#hud-pause')!;
 const hud = {
   root: document.querySelector<HTMLDivElement>('#hud')!,
   left: document.querySelector<HTMLSpanElement>('#hud-left')!,
   mid: document.querySelector<HTMLSpanElement>('#hud-mid')!,
   right: document.querySelector<HTMLSpanElement>('#hud-right')!,
+  slots: document.querySelector<HTMLDivElement>('#hud-slots')!,
 };
 
 const renderer = new Renderer(canvas);
@@ -35,6 +79,7 @@ let playing = false;
 let runLive = false;
 let hold: Hold = 'play';
 let blurred = false;
+let manualPause = false;
 let portal: Portal;
 let inGameplay = false;
 let adBusy = false;
@@ -43,6 +88,13 @@ let coinsDoubled = false;
 let celebrated = false;
 let resultTracked = false;
 let adNote = '';
+let countGen = 0;
+let countTimer: ReturnType<typeof setTimeout> | null = null;
+let prevCoins = -1;
+let prevDelivered = -1;
+let prevHearts = -1;
+
+const ico = (src: string, cls = 'ico') => `<img class="${cls}" src="${src}" alt="">`;
 
 function newSeed(): number {
   const a = new Uint32Array(1);
@@ -54,13 +106,68 @@ function pageAway(): boolean {
   return document.hidden || blurred;
 }
 
+function cancelCount() {
+  countGen++;
+  if (countTimer) clearTimeout(countTimer);
+  countTimer = null;
+  countEl.hidden = true;
+  countEl.textContent = '';
+  pauseActions.hidden = false;
+}
+
+/** 3-2-1 before the road moves again, so a resume is never a surprise. */
+function beginCountdown() {
+  if (pageAway() || adBusy || !runLive || hold !== 'hidden' || countTimer) return;
+  pauseActions.hidden = true;
+  countEl.hidden = false;
+  const gen = ++countGen;
+  const digits = ['3', '2', '1'];
+  let i = 0;
+  const show = () => {
+    if (gen !== countGen) return;
+    if (pageAway()) {
+      cancelCount();
+      return;
+    }
+    if (i >= digits.length) {
+      countTimer = null;
+      countEl.hidden = true;
+      pauseActions.hidden = false;
+      applyHold(true);
+      return;
+    }
+    countEl.textContent = digits[i];
+    countEl.classList.remove('tick');
+    void countEl.offsetWidth;
+    countEl.classList.add('tick');
+    i++;
+    countTimer = setTimeout(show, 600);
+  };
+  show();
+}
+
+function fillPause() {
+  if (isEndless(run)) {
+    pauseWhere.textContent = 'Endless';
+    leaveBtn.textContent = '☰ Menu';
+  } else {
+    pauseWhere.textContent = `${run.cfg.city ?? ''} · ${run.cfg.name}`.replace(/^ · /, '');
+    leaveBtn.textContent = '☰ Areas';
+  }
+  pauseNote.textContent = pageAway() && !manualPause
+    ? 'You switched away, so the road is frozen until you resume.'
+    : 'The road is frozen until you resume.';
+}
+
 let applyingHold = false;
-/** Pause the sim. A blur latches until Resume, so the road cannot tick before they look. */
+/** Pause the sim. A blur or the pause button latches until Resume. */
 function applyHold(resume = false) {
   if (applyingHold) return;
   applyingHold = true;
   try {
-    hold = nextHold(hold, { runLive, ad: adBusy, pageAway: pageAway(), resume });
+    if (resume) manualPause = false;
+    // The pause button uses the same latch as leaving the tab.
+    hold = nextHold(hold, { runLive, ad: adBusy, pageAway: pageAway() || manualPause, resume });
     const simulate = runLive && hold === 'play';
     if (!simulate) {
       playing = false;
@@ -82,8 +189,12 @@ function applyHold(resume = false) {
         input.enabled = true;
       }
     }
-    pauseEl.hidden = hold !== 'hidden';
-    if (hold === 'hidden') resumeBtn.focus({ preventScroll: true });
+    const showPause = hold === 'hidden';
+    if (showPause && pauseEl.hidden) fillPause();
+    pauseEl.hidden = !showPause;
+    if (!showPause) cancelCount();
+    else resumeBtn.focus({ preventScroll: true });
+    if (showPause) comboEl.hidden = true;
     updateHint();
     renderMute();
   } finally {
@@ -104,7 +215,20 @@ function celebrate() {
   portal.happytime();
 }
 
+function resetHudMotion() {
+  prevCoins = -1;
+  prevDelivered = -1;
+  prevHearts = -1;
+  lastHud = '';
+  hud.left.classList.remove('flash');
+  hud.right.classList.remove('pop');
+  hud.root.classList.remove('shake');
+  comboEl.hidden = true;
+}
+
 function startRun(cfg: LevelConfig) {
+  cancelCount();
+  manualPause = false;
   run = createRun(cfg, newSeed());
   log = [];
   renderer.reset(run);
@@ -117,7 +241,7 @@ function startRun(cfg: LevelConfig) {
   celebrated = false;
   resultTracked = false;
   adNote = '';
-  lastHud = '';
+  resetHudMotion();
   last = performance.now();
   acc = 0;
   applyHold();
@@ -174,7 +298,7 @@ function resumeRevived(how: 'ad' | 'coins'): boolean {
   runLive = true;
   rewardedThisBreak = false;
   adNote = '';
-  lastHud = '';
+  resetHudMotion();
   last = performance.now();
   acc = 0;
   applyHold();
@@ -205,7 +329,32 @@ function trackResult() {
   if (isEndless(run)) track({ name: 'endless_end', score: score(run) });
 }
 
+/** Leave a paused run without stars. An endless best is kept. */
+function abandonRun() {
+  cancelCount();
+  manualPause = false;
+  const cfg = run.cfg;
+  const endless = isEndless(run);
+  const s = score(run);
+  if (endless && beatBest(s, load('best', 0))) {
+    save('best', s);
+    celebrate();
+  }
+  track({ name: 'level_end', level: cfg.id, result: 'quit', stars: 0, time: Math.round(seconds(run)) });
+  if (endless) track({ name: 'endless_end', score: s });
+  runLive = false;
+  playing = false;
+  input.enabled = false;
+  resultTracked = true;
+  markGameplay(false);
+  applyHold();
+  if (endless) showMenu();
+  else showAreas(cityOf(cfg));
+}
+
 function endRun() {
+  cancelCount();
+  manualPause = false;
   runLive = false;
   applyHold();
   markGameplay(false);
@@ -233,30 +382,38 @@ function endRun() {
     const withMidgame = !offerAdRevive;
     const note = adNote ? `<p class="ad-note">${adNote}</p>` : '';
     const video = offerAdRevive
-      ? `<button class="btn green" data-act="revive" aria-label="Watch a video to revive with one heart">▶ Revive</button>`
+      ? `<button class="btn blue" data-act="revive" aria-label="Watch a video to revive with one heart">▶ Revive</button>`
       : '';
     const coins = offerCoinRevive
-      ? `<button class="btn green" data-act="coins">Revive · ${run.tuning.reviveCost} 🪙</button>`
+      ? `<button class="btn yellow" data-act="coins">Revive · ${run.tuning.reviveCost} ${ico(hudCoinUrl)}</button>`
       : '';
     const doubled = offerDouble
-      ? `<button class="btn green" data-act="double" aria-label="Watch a video to double the coins from this run">▶ Double coins</button>`
+      ? `<button class="btn yellow" data-act="double" aria-label="Watch a video to double the coins from this run">▶ Double coins</button>`
       : '';
     const leave = (go: () => void) => {
       trackResult();
       go();
     };
+    const extras = [video, doubled].filter(Boolean).join('');
+    const above = extras ? `<div class="stack">${extras}</div>` : '';
 
     if (endless) {
       const s = score(run);
       const record = beatBest(s, bestBefore);
       screen(
-        `<h2>${record ? 'New record!' : 'Ride over!'}</h2><div class="big">${s}</div>
-        <p>${meters(run)} m · ${run.delivered} delivered · 🪙 ${run.coins}${coinsDoubled ? ' · doubled' : ''}</p>
+        `<h2 class="${record ? 'ribbon' : ''}">${record ? 'New record!' : 'Ride over!'}</h2>
+        <div class="big">${s}</div>
+        <div class="stats">
+          <span class="chip">${ico(flagUrl)} ${meters(run)} m</span>
+          <span class="chip">${ico(parcelUrl)} ${run.delivered}</span>
+          <span class="chip">${ico(hudCoinUrl)} <b id="coin-count">0</b>${coinsDoubled ? ' ×2' : ''}</span>
+        </div>
         ${offerAdRevive ? '<p class="small-print">Revive is optional. Watch a short video, spend coins, or ride again.</p>' : ''}
         ${note}
+        ${above}
         <div class="row"><button class="btn yellow" data-act="menu">☰ Menu</button>
-        ${video}${coins}${doubled}
-        <button class="btn green" data-act="again" autofocus>↻ Ride again</button></div>`,
+        ${coins}
+        <button class="btn green" data-act="again" autofocus>▶ Ride again</button></div>`,
         {
           menu: () => leave(showMenu),
           revive: () => void onRevive(showResult),
@@ -266,19 +423,27 @@ function endRun() {
           double: () => void onDouble(showResult),
           again: () => leave(() => void betweenRuns(() => startRun(cfg), withMidgame)),
         },
+        false,
+        true,
       );
+      finishResult(run.coins, record);
       return;
     }
 
     screen(
-      `<p class="where">${cfg.city}</p><h2>${won ? `${cfg.name} delivered!` : 'Out of hearts!'}</h2>${starsHtml(stars, 'big-stars')}
-      <p>${run.delivered}/${cfg.goal} delivered · 🪙 ${run.coins}${coinsDoubled ? ' · doubled' : ''}</p>
-      ${newCity ? `<p class="unlock">🎉 ${cfg.city} complete! <b>${next?.city}</b> unlocked.</p>` : ''}
+      `<p class="where">${cfg.city}</p><h2 class="${won ? 'win' : 'lose'}">${won ? `${cfg.name} delivered!` : 'Out of hearts!'}</h2>${starsHtml(stars, 'big-stars')}
+      <div class="stats">
+        <span class="chip">${ico(parcelUrl)} ${run.delivered}/${cfg.goal}</span>
+        <span class="chip">${ico(hudCoinUrl)} <b id="coin-count">0</b>${coinsDoubled ? ' ×2' : ''}</span>
+        <span class="chip">${Math.round(seconds(run))}s</span>
+      </div>
+      ${newCity ? `<p class="unlock">${cfg.city} complete! <b>${next?.city}</b> unlocked.</p>` : ''}
       ${offerAdRevive ? '<p class="small-print">Revive is optional. Watch a short video, spend coins, or retry.</p>' : ''}
       ${note}
+      ${above}
       <div class="row"><button class="btn yellow" data-act="areas">☰ Areas</button>
-      ${video}${coins}${doubled}
-      <button class="btn green" data-act="again" ${next ? '' : 'autofocus'}>↻ Retry</button>
+      ${coins}
+      <button class="btn green" data-act="again" ${next ? '' : 'autofocus'}>Retry</button>
       ${next ? `<button class="btn green" data-act="next" autofocus>${newCity ? `${next.city} ▶` : 'Next ▶'}</button>` : ''}</div>`,
       {
         areas: () => leave(() => showAreas(cityOf(cfg))),
@@ -290,10 +455,52 @@ function endRun() {
         again: () => leave(() => void betweenRuns(() => startRun(cfg), withMidgame)),
         next: () => leave(() => void betweenRuns(() => next && showBrief(next), withMidgame)),
       },
+      false,
+      true,
     );
+    finishResult(run.coins, false);
   };
 
   later(showResult);
+}
+
+function finishResult(coins: number, record: boolean) {
+  const panel = overlay.querySelector<HTMLElement>('.panel');
+  const coinEl = overlay.querySelector<HTMLElement>('#coin-count');
+  if (coinEl) countUp(coinEl, coins);
+  if (record && panel) confetti(panel);
+}
+
+function countUp(el: HTMLElement, to: number) {
+  if (renderer.reduceMotion || to <= 0) {
+    el.textContent = String(to);
+    return;
+  }
+  const t0 = performance.now();
+  const tick = (now: number) => {
+    if (!el.isConnected) return;
+    const t = Math.min(1, (now - t0) / 600);
+    const eased = 1 - (1 - t) ** 3;
+    el.textContent = String(Math.round(to * eased));
+    if (t < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+function confetti(panel: HTMLElement) {
+  if (renderer.reduceMotion) return;
+  const box = document.createElement('div');
+  box.className = 'confetti';
+  box.setAttribute('aria-hidden', 'true');
+  const colors = ['#FFCC2E', '#FF5A4E', '#5DD039', '#2F8CFF', '#FFFAF0', '#D99A00', '#4FB3F6'];
+  for (let i = 0; i < 20; i++) {
+    const bit = document.createElement('i');
+    bit.style.left = `${(i * 17) % 100}%`;
+    bit.style.background = colors[i % colors.length];
+    bit.style.animationDelay = `${(i % 5) * 40}ms`;
+    box.appendChild(bit);
+  }
+  panel.prepend(box);
 }
 
 async function onRevive(redraw: () => void) {
@@ -327,15 +534,18 @@ async function onDouble(redraw: () => void) {
 /** Let the last frame (the crash or the final drop) register before a panel covers it. */
 const later = (fn: () => void) => setTimeout(fn, 600);
 
-const starsHtml = (n: number, cls = 'stars') =>
-  `<span class="${cls}" aria-label="${n} of 3 stars">${'★'.repeat(n)}<span class="off">${'★'.repeat(3 - n)}</span></span>`;
+const starsHtml = (n: number, cls = 'stars') => {
+  const stars = [0, 1, 2].map((i) => ico(i < n ? starFullUrl : starEmptyUrl, 'star')).join('');
+  return `<span class="${cls}" aria-label="${n} of 3 stars">${stars}</span>`;
+};
 
 /** Show a panel; buttons with data-act call the matching handler. */
-function screen(html: string, acts: Record<string, () => void>, wide = false) {
-  overlay.innerHTML = `<div class="panel${wide ? ' wide' : ''}">${html}</div>`;
+function screen(html: string, acts: Record<string, () => void>, wide = false, rise = false) {
+  overlay.innerHTML = `<div class="panel${wide ? ' wide' : ''}${rise ? ' rise' : ''}">${html}</div>`;
   overlay.hidden = false;
   hud.root.hidden = true;
   hintEl.hidden = true;
+  comboEl.hidden = true;
   overlay.querySelectorAll<HTMLButtonElement>('[data-act]').forEach((b) => {
     const fn = acts[b.dataset.act!];
     if (fn) b.onclick = fn;
@@ -350,26 +560,44 @@ function backdrop(cfg: LevelConfig) {
   renderer.reset(run);
 }
 
+function markSeen() {
+  if (!load('seenHow', false)) save('seenHow', true);
+}
+
 function showMenu() {
   const cur = currentLevel();
+  const first = !load('seenHow', false);
   backdrop(cur);
   screen(
-    `<h1>Rider Dash</h1>
+    `<img class="logo" src="${logoUrl}" alt="Rider Dash" width="600" height="406">
     <p class="tag">Deliver parcels across India, one neighbourhood at a time.</p>
-    <ul class="how">
-      <li><b>Swipe</b> or <b>tap</b> left/right to change lanes</li>
+    ${first ? `<ul class="how">
+      <li><b>Swipe</b> or <b>tap</b> left and right to change lanes</li>
       <li><b>Swipe up</b> to jump potholes and speed breakers</li>
-      <li>Grab 📦 parcels, ride through green <b>DROP</b> zones</li>
+      <li>Grab parcels, then ride through a green <b>DROP</b> zone</li>
     </ul>
+    <p class="keys">Keyboard: ← → to steer, ↑ or Space to jump</p>` : ''}
     <p class="where">${cur.city} · ${cur.name}</p>
     <div class="tip">${cur.tip}</div>
-    <p class="keys">Keyboard: ← → to steer, ↑ or Space to jump</p>
     <div class="col">
       <button class="btn green" data-act="play" autofocus>▶ Play · ${cur.name}</button>
-      <button class="btn blue" data-act="cities">🗺 Cities</button>
-      <button class="btn red" data-act="endless">♾ Endless · best ${load('best', 0)}</button>
+      <button class="btn red" data-act="endless">∞ Endless · best ${load('best', 0)}</button>
+      <button class="btn blue" data-act="cities">Cities</button>
     </div>`,
-    { play: () => startRun(cur), cities: showCities, endless: () => startRun(ENDLESS) },
+    {
+      play: () => {
+        markSeen();
+        startRun(cur);
+      },
+      cities: () => {
+        markSeen();
+        showCities();
+      },
+      endless: () => {
+        markSeen();
+        startRun(ENDLESS);
+      },
+    },
   );
 }
 
@@ -377,10 +605,11 @@ function showCities() {
   const cards = CITIES.map((c, i) => {
     const open = cityUnlocked(c);
     const done = cityCleared(c);
+    const icon = open ? ico(CITY_ICON[c.id] ?? lockUrl) : ico(lockUrl, 'lock');
     return `<button class="city" data-act="c${i}" ${open ? '' : 'disabled'}>
-      <span class="city-emoji">${open ? c.emoji : '🔒'}</span>
+      <span class="city-emoji">${icon}</span>
       <span class="city-text"><b>${c.name}</b><small>${open ? c.tagline : `Clear every area in ${CITIES[i - 1]?.name} to unlock`}</small></span>
-      <span class="city-prog">${done}/${c.levels.length}<small>★ ${cityStars(c)}</small></span>
+      <span class="city-prog">${done}/${c.levels.length}<small>${ico(starFullUrl, 'star')} ${cityStars(c)}</small></span>
     </button>`;
   }).join('');
   const acts: Record<string, () => void> = { back: showMenu };
@@ -402,16 +631,17 @@ function showAreas(city: City) {
     const badge = l.rain ? '🌧️' : l.night ? '🌙' : '';
     return `<button class="area${l.id === cur.id ? ' current' : ''}${s ? ' done' : ''}" data-act="a${i}" ${open ? '' : 'disabled'}
       aria-label="${i + 1}. ${l.name}${open ? `, ${s} stars` : ', locked'}">
-      <span class="area-num">${open ? i + 1 : '🔒'}</span>
+      <span class="area-num">${open ? i + 1 : ico(lockUrl)}</span>
       <span class="area-name">${l.name}</span>
       <span class="area-meta">${open ? starsHtml(s) : ''}${badge ? `<span class="badge">${badge}</span>` : ''}</span>
     </button>`;
   }).join('');
   const acts: Record<string, () => void> = { back: showCities };
   city.levels.forEach((l, i) => (acts[`a${i}`] = () => showBrief(l)));
+  const mark = CITY_ICON[city.id];
   screen(
     `<div class="bar"><button class="btn small yellow" data-act="back" aria-label="All cities">◀</button>
-      <h2>${city.emoji} ${city.name}</h2><span class="bar-prog">${cityCleared(city)}/${city.levels.length}</span></div>
+      <h2>${mark ? `<img class="city-mark" src="${mark}" alt="">` : ''}${city.name}</h2><span class="bar-prog">${cityCleared(city)}/${city.levels.length}</span></div>
     <p class="tag">${city.tagline}</p>
     <div class="areas">${tiles}</div>`,
     acts,
@@ -438,15 +668,48 @@ function showBrief(l: LevelConfig) {
 
 let lastHud = '';
 function updateHud() {
-  const left = isEndless(run) ? `🏁 ${meters(run)} m` : `📦 ${run.delivered}/${run.cfg.goal}`;
-  const mid = '❤️'.repeat(Math.max(0, run.hearts)) + '🤍'.repeat(Math.max(0, run.tuning.hearts - run.hearts));
-  const right = `🪙 ${run.coins}`;
-  const key = left + mid + right;
+  const endless = isEndless(run);
+  const leftText = endless ? `${meters(run)} m` : `${run.delivered}/${run.cfg.goal}`;
+  const hearts = Math.max(0, run.hearts);
+  const total = run.tuning.hearts;
+  const coins = run.coins;
+  const carry = run.carry;
+  const key = `${leftText}|${hearts}|${coins}|${carry}|${endless ? 1 : 0}`;
   if (key === lastHud) return;
+  const coinPop = prevCoins >= 0 && coins > prevCoins;
+  const deliveredPop = prevDelivered >= 0 && run.delivered > prevDelivered;
+  const heartLost = prevHearts >= 0 && hearts < prevHearts;
+  prevCoins = coins;
+  prevDelivered = run.delivered;
+  prevHearts = hearts;
   lastHud = key;
-  hud.left.textContent = left;
-  hud.mid.textContent = mid;
-  hud.right.textContent = right;
+
+  hud.left.innerHTML = `${ico(endless ? flagUrl : parcelUrl)} ${leftText}`;
+  if (deliveredPop) replayClass(hud.left, 'flash');
+  let heartsHtml = '';
+  for (let i = 0; i < total; i++) {
+    const full = i < hearts;
+    const lost = heartLost && i === hearts;
+    heartsHtml += `<img class="heart${lost ? ' lost' : ''}" src="${full ? heartFullUrl : heartEmptyUrl}" alt="">`;
+  }
+  hud.mid.innerHTML = heartsHtml;
+  hud.mid.setAttribute('aria-label', `${hearts} of ${total} hearts`);
+  hud.right.innerHTML = `${ico(hudCoinUrl)} ${coins}`;
+  if (coinPop) replayClass(hud.right, 'pop');
+  if (heartLost && !renderer.reduceMotion) replayClass(hud.root, 'shake');
+  hud.slots.innerHTML = [0, 1, 2].map((i) => ico(i < carry ? slotFullUrl : slotEmptyUrl, 'slot')).join('');
+}
+
+function replayClass(el: HTMLElement, cls: string) {
+  el.classList.remove(cls);
+  void el.offsetWidth;
+  el.classList.add(cls);
+}
+
+function showCombo(n: number) {
+  comboEl.hidden = false;
+  comboEl.textContent = `×${Math.min(3, n)}`;
+  replayClass(comboEl, 'show');
 }
 
 function updateHint() {
@@ -469,7 +732,7 @@ function updateHint() {
 
 function renderMute() {
   const control = muteControl();
-  muteBtn.textContent = control.muted ? '🔇' : '🔊';
+  muteIcon.src = control.muted ? soundOffUrl : soundOnUrl;
   muteBtn.disabled = control.locked || adBusy;
   muteBtn.setAttribute('aria-pressed', control.muted ? 'true' : 'false');
   muteBtn.setAttribute('aria-label', control.locked ? 'Sound is muted by the site' : control.muted ? 'Unmute sound' : 'Mute sound');
@@ -512,7 +775,10 @@ function frame(now: number) {
       if (run.events.length) {
         renderer.onEvents(run, run.events);
         voice(run.events);
-        for (const e of run.events) if (e.type === 'hit') track({ name: 'hit', level: run.cfg.id, kind: e.kind });
+        for (const e of run.events) {
+          if (e.type === 'hit') track({ name: 'hit', level: run.cfg.id, kind: e.kind });
+          if (e.type === 'deliver' && e.combo > 1) showCombo(e.combo);
+        }
       }
       if (run.status !== 'running') endRun();
     }
@@ -532,16 +798,40 @@ window.addEventListener('resize', resize);
 new ResizeObserver(() => resize()).observe(stage);
 // Tab away freezes a live run. CrazyGames already pauses its own metrics on blur,
 // so this does not send gameplayStop.
-document.addEventListener('visibilitychange', () => applyHold());
+document.addEventListener('visibilitychange', () => {
+  if (pageAway()) cancelCount();
+  applyHold();
+});
 window.addEventListener('blur', () => {
   blurred = true;
+  cancelCount();
   applyHold();
 });
 window.addEventListener('focus', () => {
   blurred = false;
   applyHold();
 });
-pauseEl.addEventListener('click', () => applyHold(true));
+resumeBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  beginCountdown();
+});
+restartBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const cfg = run.cfg;
+  cancelCount();
+  manualPause = false;
+  startRun(cfg);
+});
+leaveBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  abandonRun();
+});
+hudPause.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (!runLive || adBusy || hold !== 'play') return;
+  manualPause = true;
+  applyHold();
+});
 muteBtn.addEventListener('click', (e) => {
   e.stopPropagation();
   if (muteBtn.disabled) return;
@@ -550,7 +840,19 @@ muteBtn.addEventListener('click', (e) => {
   renderMute();
 });
 window.addEventListener('pointerdown', () => unlock(), { passive: true });
-window.addEventListener('keydown', () => unlock());
+window.addEventListener('keydown', (e) => {
+  unlock();
+  if (e.repeat) return;
+  if (e.key !== 'Escape' && e.key !== 'p' && e.key !== 'P') return;
+  if (!runLive || adBusy || hold === 'ad' || countTimer) return;
+  e.preventDefault();
+  if (hold === 'play') {
+    manualPause = true;
+    applyHold();
+  } else if (hold === 'hidden' && !pageAway()) {
+    beginCountdown();
+  }
+});
 // No outbound navigation. CrazyGames hosts the game; links would leave the iframe.
 document.addEventListener('click', (e) => {
   const el = e.target;
@@ -570,6 +872,15 @@ if (import.meta.env.DEV) {
 
 async function boot() {
   portal = await bootPortal();
+  const fonts = document.fonts;
+  await Promise.race([
+    Promise.all([
+      loadSprites(),
+      fonts?.load('16px "Lilita One"'),
+      fonts?.load('700 16px "Baloo 2"'),
+    ]).catch((err) => console.error(err)),
+    new Promise((resolve) => setTimeout(resolve, 2500)),
+  ]);
   reloadProgress();
   loadUserMute();
   renderMute();
