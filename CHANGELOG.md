@@ -11,7 +11,7 @@
   module when that module is enabled. Unknown ids fall back to the default part.
 - Menu has a Rider button. Button labels and badges that were still emoji (play, retry, menu,
   cities, endless, back, pause, rain, night, city unlock) are inline SVG icons in the brand palette.
-- The simulation is unchanged.
+- The simulation is unchanged. `npm test` is 57 tests. `npm run zip` is still 7 files, 178,736 bytes (0.170 MB) uncompressed.
 
 ## 0.5.0 — 2026-10-15 · Art pass
 
