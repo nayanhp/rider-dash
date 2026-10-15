@@ -8,6 +8,8 @@ import frontSvg from '../sprites/avatars/rider-front.svg?raw';
 import type { AvatarColors } from '../avatar';
 
 export const RIDER_DRAW = 0.95;
+/** Picker only. Design range is 96–128px; the front viewBox is 128 wide. */
+export const PICKER_DRAW_PX = 128;
 /** Anchor from the viewBox origin: (48,124) inside viewBox -16 -30. */
 export const RIDER_ANCHOR = { x: 64, y: 154 };
 const VB_W = 128;

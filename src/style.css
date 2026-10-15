@@ -418,7 +418,7 @@ html, body {
 .btn img { width: 22px; height: 22px; flex: none; display: block; }
 #hud-pause img { width: 20px; height: 20px; display: block; }
 
-.rider-preview { width: 128px; min-width: 96px; height: 160px; display: block; margin: 2px auto 0; }
+.rider-preview { display: block; width: 128px; min-width: 96px; max-width: 128px; height: auto; margin: 2px auto 0; }
 .part { border: 0; margin: 12px 0 0; padding: 0; }
 .part legend { font-weight: 800; font-size: 0.95rem; margin-bottom: 6px; }
 .swatches { display: flex; gap: 10px; justify-content: center; }

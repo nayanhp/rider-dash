@@ -10,7 +10,7 @@ import { bootPortal, type Portal } from './platform/crazygames';
 import { load, save } from './platform/storage';
 import { loadSprites } from './render/art';
 import { Renderer } from './render/renderer';
-import { frontPreviewUrl, prepareAvatar } from './render/riderArt';
+import { frontPreviewUrl, PICKER_DRAW_PX, prepareAvatar } from './render/riderArt';
 import playUrl from './sprites/ui-play.svg';
 import retryUrl from './sprites/ui-retry.svg';
 import menuUrl from './sprites/ui-menu.svg';
@@ -642,7 +642,7 @@ function showRider() {
   };
   screen(
     `<div class="bar"><button class="btn small yellow" data-act="back" aria-label="Menu">${ico(backUrl)}</button><h2>Your rider</h2><span></span></div>
-    <img class="rider-preview" alt="Your rider, from the front" width="128" height="160">
+    <img class="rider-preview" alt="Your rider, from the front" width="${PICKER_DRAW_PX}" height="${PICKER_DRAW_PX * 160 / 128}" style="width:${PICKER_DRAW_PX}px">
     <p class="small-print">Jacket, helmet and skin. The scooter stays red.</p>
     <fieldset class="part"><legend>Jacket</legend><div class="swatches">${swatchRow('jacket')}</div></fieldset>
     <fieldset class="part"><legend>Helmet</legend><div class="swatches">${swatchRow('helmet')}</div></fieldset>

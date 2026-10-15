@@ -4,16 +4,16 @@
 
 - Rider look is cosmetic: jacket, helmet and skin, chosen from the design avatar kit
   (`src/sprites/avatars/`). The default is the kit's baked rider — kerb-red jacket, parcel-yellow
-  helmet, medium skin — on the same red scooter. The front pose is the picker preview only;
-  a run still draws the back and lean poses. Recolouring swaps the three group fills and
-  rasters those poses when the look changes, not every frame.
+  helmet, medium skin — on the same red scooter. `rider-front.svg` (`files.front`, viewBox
+  `0 0 128 160`) is the picker preview at 128px. A run still draws the back and lean poses.
+  Recolouring swaps the three group fills and rasters those poses when the look changes, not every frame.
 - The choice is saved with the rest of progress (`avatar`), including the CrazyGames data
   module when that module is enabled. Unknown ids fall back to the default part.
 - Menu has a Rider button. Play, retry, menu, map, endless, back, and pause use the design
   UI sprites. Rain, night, and city unlock use the design badges.
 - Each in-run pose is tinted, loaded through a blob URL, and cached as a 256×320 canvas. The cache
   rebuilds only when the look changes. The picker shows the front pose at 128px.
-- The simulation is unchanged. `npm test` is 57 tests. `npm run zip` is still 7 files, 181,763 bytes (0.173 MB) uncompressed.
+- The simulation is unchanged. `npm test` is 57 tests. `npm run zip` is still 7 files, 181,798 bytes (0.173 MB) uncompressed.
 
 ## 0.5.0 — 2026-10-15 · Art pass
 

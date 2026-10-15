@@ -8,7 +8,8 @@ import {
   setAvatarPart,
 } from './avatar';
 import { useStore } from './platform/storage';
-import { RIDER_ANCHOR, RIDER_RASTER, RIDER_SOURCES, tintRiderSvg } from './render/riderArt';
+import roles from './sprites/avatars/avatar-roles.json';
+import { PICKER_DRAW_PX, RIDER_ANCHOR, RIDER_RASTER, RIDER_SOURCES, tintRiderSvg } from './render/riderArt';
 
 beforeEach(() => {
   const mem = new Map<string, string>();
@@ -81,5 +82,16 @@ describe('rider tint', () => {
     const tinted = tintRiderSvg(RIDER_SOURCES.front, { ...colors, skin: '#F0C8A0', helmet: '#F5F5F5' });
     expect(tinted).toContain('fill="#2A2F5A"');
     expect(tinted).toContain('opacity=".22"');
+  });
+
+  it('reserves the front pose for the picker', () => {
+    expect(roles.files.front).toBe('rider-front.svg');
+    expect(roles.front.viewBox).toBe('0 0 128 160');
+    expect(roles.front.usage).toContain('picker preview only');
+    expect(RIDER_SOURCES.front).toContain('viewBox="0 0 128 160"');
+    expect(RIDER_SOURCES.back).toContain('viewBox="-16 -30 128 160"');
+    expect(RIDER_SOURCES.front).not.toBe(RIDER_SOURCES.back);
+    expect(PICKER_DRAW_PX).toBeGreaterThanOrEqual(96);
+    expect(PICKER_DRAW_PX).toBeLessThanOrEqual(128);
   });
 });
