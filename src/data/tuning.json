@@ -26,5 +26,8 @@
   "comboCap": 3,
   "scorePerDelivery": 5,
   "scoreDistanceDiv": 100,
-  "metersDiv": 10
+  "metersDiv": 10,
+  "reviveCost": 30,
+  "reviveHearts": 1,
+  "coinDoubleMultiplier": 2
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ENDLESS, LEVELS, TUNING } from './config';
 import { Rng } from './rng';
-import { addObj, airborne, createRun, replay, score, speed, spawnRow, step, type Command, type InputLog } from './run';
+import { addObj, airborne, beatBest, createRun, replay, reviveStillOpen, score, speed, spawnRow, step, type Command, type InputLog } from './run';
 
 const L1 = LEVELS[0];
 const ALL_KINDS = LEVELS[3];
@@ -164,6 +164,69 @@ describe('hits', () => {
     rideTo(s, 2000);
     expect(s.status).toBe('lost');
     expect(s.hearts).toBe(0);
+  });
+
+  it('revives once, and a coin revive spends the configured cost', () => {
+    const crash = () => {
+      const s = bare();
+      s.coins = TUNING.reviveCost;
+      for (let i = 0; i < 3; i++) addObj(s, 'auto', 1, 200 + i * 600);
+      while (s.status === 'running') step(s);
+      return s;
+    };
+    const ad = crash();
+    expect(ad.tick).toBeGreaterThan(0);
+    step(ad, ['revive']);
+    expect(ad.status).toBe('running');
+    expect(ad.hearts).toBe(TUNING.reviveHearts);
+    expect(ad.revived).toBe(true);
+    expect(ad.coins).toBe(TUNING.reviveCost);
+    step(ad, ['revive']);
+    expect(ad.hearts).toBe(TUNING.reviveHearts);
+
+    const paid = crash();
+    step(paid, ['reviveCoins']);
+    expect(paid.status).toBe('running');
+    expect(paid.coins).toBe(0);
+    const poor = crash();
+    poor.coins = TUNING.reviveCost - 1;
+    step(poor, ['reviveCoins']);
+    expect(poor.status).toBe('lost');
+
+    const running = bare();
+    step(running, ['revive']);
+    expect(running.revived).toBe(false);
+  });
+
+  it('a tied endless score is not a new record, and a revive stays open while it can continue', () => {
+    expect(beatBest(80, 80)).toBe(false);
+    expect(beatBest(81, 80)).toBe(true);
+    const lost = bare();
+    lost.status = 'lost';
+    lost.coins = TUNING.reviveCost;
+    expect(reviveStillOpen(lost, false)).toBe(true);
+    lost.coins = TUNING.reviveCost - 1;
+    expect(reviveStillOpen(lost, true)).toBe(true);
+    expect(reviveStillOpen(lost, false)).toBe(false);
+    lost.revived = true;
+    expect(reviveStillOpen(lost, true)).toBe(false);
+    const won = bare();
+    won.status = 'won';
+    expect(reviveStillOpen(won, true)).toBe(false);
+  });
+
+  it('replay reproduces a revive on the tick the run was lost', () => {
+    const death = replay(ENDLESS, 3, [], 60 * 60 * 10);
+    expect(death.status).toBe('lost');
+    const log: InputLog = [[death.tick, 'revive']];
+    const a = replay(ENDLESS, 3, log, death.tick + 20);
+    const b = replay(ENDLESS, 3, log, death.tick + 20);
+    expect(a.status).toBe('running');
+    expect(a.revived).toBe(true);
+    expect(a.hearts).toBe(TUNING.reviveHearts);
+    expect(b.tick).toBe(a.tick);
+    expect(b.hearts).toBe(a.hearts);
+    expect(b.dist).toBe(a.dist);
   });
 });
 
