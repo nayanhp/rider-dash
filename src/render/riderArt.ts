@@ -12,8 +12,8 @@ export const RIDER_DRAW = 0.95;
 export const RIDER_ANCHOR = { x: 64, y: 154 };
 const VB_W = 128;
 const VB_H = 160;
-const RASTER_W = 512;
-const RASTER_H = 640;
+/** One canvas per pose, rebuilt only when the avatar changes. */
+export const RIDER_RASTER = { w: 256, h: 320 };
 
 export const RIDER_SOURCES = {
   back: backSvg,
@@ -73,14 +73,19 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 }
 
 async function raster(svg: string): Promise<HTMLCanvasElement> {
-  const img = await loadImage(svgUrl(svg));
-  const canvas = document.createElement('canvas');
-  canvas.width = RASTER_W;
-  canvas.height = RASTER_H;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Canvas 2D not supported');
-  ctx.drawImage(img, 0, 0, RASTER_W, RASTER_H);
-  return canvas;
+  const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+  try {
+    const img = await loadImage(url);
+    const canvas = document.createElement('canvas');
+    canvas.width = RIDER_RASTER.w;
+    canvas.height = RIDER_RASTER.h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas 2D not supported');
+    ctx.drawImage(img, 0, 0, RIDER_RASTER.w, RIDER_RASTER.h);
+    return canvas;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 /** Build the three in-run poses. The previous look stays on screen until this resolves. */

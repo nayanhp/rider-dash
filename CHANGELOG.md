@@ -9,9 +9,11 @@
   rasters those poses when the look changes, not every frame.
 - The choice is saved with the rest of progress (`avatar`), including the CrazyGames data
   module when that module is enabled. Unknown ids fall back to the default part.
-- Menu has a Rider button. Button labels and badges that were still emoji (play, retry, menu,
-  cities, endless, back, pause, rain, night, city unlock) are inline SVG icons in the brand palette.
-- The simulation is unchanged. `npm test` is 57 tests. `npm run zip` is still 7 files, 178,736 bytes (0.170 MB) uncompressed.
+- Menu has a Rider button. Play, retry, menu, map, endless, back, and pause use the design
+  UI sprites. Rain, night, and city unlock use the design badges.
+- Each in-run pose is tinted, loaded through a blob URL, and cached as a 256×320 canvas. The cache
+  rebuilds only when the look changes. The picker shows the front pose at 128px.
+- The simulation is unchanged. `npm test` is 57 tests. `npm run zip` is still 7 files, 181,763 bytes (0.173 MB) uncompressed.
 
 ## 0.5.0 — 2026-10-15 · Art pass
 

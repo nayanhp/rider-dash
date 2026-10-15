@@ -8,7 +8,7 @@ import {
   setAvatarPart,
 } from './avatar';
 import { useStore } from './platform/storage';
-import { RIDER_ANCHOR, RIDER_SOURCES, tintRiderSvg } from './render/riderArt';
+import { RIDER_ANCHOR, RIDER_RASTER, RIDER_SOURCES, tintRiderSvg } from './render/riderArt';
 
 beforeEach(() => {
   const mem = new Map<string, string>();
@@ -60,6 +60,7 @@ describe('rider tint', () => {
       expect(tintRiderSvg(svg, colors)).toBe(svg);
     }
     expect(RIDER_ANCHOR).toEqual({ x: 64, y: 154 });
+    expect(RIDER_RASTER).toEqual({ w: 256, h: 320 });
   });
 
   it('recolours only the jacket, helmet and skin groups', () => {

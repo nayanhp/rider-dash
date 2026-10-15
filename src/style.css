@@ -280,7 +280,7 @@ html, body {
 .goal { font-size: 1.15rem; }
 .badges { display: flex; gap: 12px; justify-content: center; align-items: center; font-size: 0.95rem; }
 .badge { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; }
-.badge svg, .unlock svg { width: 18px; height: 18px; display: block; flex: none; }
+.badge img, .unlock img { width: 22px; height: 22px; display: block; flex: none; }
 .tip { background: #fff1c9; border-radius: 12px; padding: 10px 12px; margin: 10px 0; line-height: 1.4; }
 .small-print { font-size: 0.85rem; opacity: 0.75; }
 .unlock { display: flex; align-items: center; justify-content: center; gap: 8px; background: #e3f8d8; border-radius: 12px; padding: 8px 10px; }
@@ -350,7 +350,7 @@ html, body {
 .area-num img { width: 22px; height: 22px; display: block; }
 .area-name { font-size: 0.78rem; line-height: 1.15; text-align: center; }
 .area-meta { display: flex; gap: 4px; align-items: center; min-height: 1em; }
-.area-meta .badge svg { width: 16px; height: 16px; }
+.area-meta .badge img { width: 18px; height: 18px; }
 
 .row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 14px; }
 .row .btn { flex: 1 1 140px; }
@@ -415,10 +415,10 @@ html, body {
 .btn.red { --shade: var(--red-d); background: var(--red); }
 .btn.blue { --shade: var(--blue-d); background: var(--blue); }
 .btn.small { min-height: 48px; padding: 6px 12px; font-size: 1rem; }
-.btn img, .btn svg.ico { width: 20px; height: 20px; flex: none; display: block; }
-#hud-pause svg { width: 16px; height: 16px; display: block; }
+.btn img { width: 22px; height: 22px; flex: none; display: block; }
+#hud-pause img { width: 20px; height: 20px; display: block; }
 
-.rider-preview { width: 128px; height: 160px; display: block; margin: 2px auto 0; }
+.rider-preview { width: 128px; min-width: 96px; height: 160px; display: block; margin: 2px auto 0; }
 .part { border: 0; margin: 12px 0 0; padding: 0; }
 .part legend { font-weight: 800; font-size: 0.95rem; margin-bottom: 6px; }
 .swatches { display: flex; gap: 10px; justify-content: center; }
