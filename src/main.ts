@@ -385,7 +385,7 @@ function endRun() {
       ? `<button class="btn blue" data-act="revive" aria-label="Watch a video to revive with one heart">▶ Revive</button>`
       : '';
     const coins = offerCoinRevive
-      ? `<button class="btn yellow" data-act="coins">Revive · ${run.tuning.reviveCost} ${ico(hudCoinUrl)}</button>`
+      ? `<button class="btn yellow" data-act="coins">Revive · ${run.tuning.reviveCost} 🪙</button>`
       : '';
     const doubled = offerDouble
       ? `<button class="btn yellow" data-act="double" aria-label="Watch a video to double the coins from this run">▶ Double coins</button>`
@@ -413,7 +413,7 @@ function endRun() {
         ${above}
         <div class="row"><button class="btn yellow" data-act="menu">☰ Menu</button>
         ${coins}
-        <button class="btn green" data-act="again" autofocus>▶ Ride again</button></div>`,
+        <button class="btn green" data-act="again" autofocus>↻ Ride again</button></div>`,
         {
           menu: () => leave(showMenu),
           revive: () => void onRevive(showResult),
@@ -443,7 +443,7 @@ function endRun() {
       ${above}
       <div class="row"><button class="btn yellow" data-act="areas">☰ Areas</button>
       ${coins}
-      <button class="btn green" data-act="again" ${next ? '' : 'autofocus'}>Retry</button>
+      <button class="btn green" data-act="again" ${next ? '' : 'autofocus'}>↻ Retry</button>
       ${next ? `<button class="btn green" data-act="next" autofocus>${newCity ? `${next.city} ▶` : 'Next ▶'}</button>` : ''}</div>`,
       {
         areas: () => leave(() => showAreas(cityOf(cfg))),
@@ -581,8 +581,8 @@ function showMenu() {
     <div class="tip">${cur.tip}</div>
     <div class="col">
       <button class="btn green" data-act="play" autofocus>▶ Play · ${cur.name}</button>
-      <button class="btn red" data-act="endless">∞ Endless · best ${load('best', 0)}</button>
-      <button class="btn blue" data-act="cities">Cities</button>
+      <button class="btn red" data-act="endless">♾ Endless · best ${load('best', 0)}</button>
+      <button class="btn blue" data-act="cities">🗺 Cities</button>
     </div>`,
     {
       play: () => {

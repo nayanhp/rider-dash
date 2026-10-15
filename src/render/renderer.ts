@@ -349,8 +349,7 @@ export class Renderer {
       p.vy += 500 * dt;
       c.globalAlpha = Math.max(0, Math.min(1, p.life * 2));
       c.fillStyle = p.color;
-      this.rr(p.x - 3, p.y - 3, 6, 6, 2);
-      c.fill();
+      c.fillRect(p.x - 3, p.y - 3, 6, 6);
     }
     this.particles = this.particles.filter((p) => p.life > 0);
     for (const p of this.popups) {

@@ -5,6 +5,7 @@
 - Gameplay objects use the Design & Brand SVGs (rider, lean left/right, parcel, coin, auto, car, cow, pothole, speed breaker, drop pad, tree, house, skyline). Each sprite is rasterised once onto a canvas and drawn with `drawImage`, sized from the lane width. The upright rider swaps to the lean sprites while changing lanes. The word DROP stays canvas text. Night and rain still use the full-screen tint.
 - HUD, menu, pause, and result screens use the same set: parcel slots, coin, hearts, flag, speaker, stars, locks, and city marks. Lilita One and Baloo 2 are self-hosted (woff2, `font-display: swap`) with the SIL licence in the zip. No font request leaves the game. Palette: Ink, Night, Parcel Yellow, Kerb Red, Drop Green, Cream, Road, Sky, Action Blue. The sky is the only gradient.
 - Menu: logo, first-run how-to (hidden once `seenHow` is saved), Play / Endless / Cities. Pause button, Esc, and P open a Resume / Restart / Areas panel; Resume counts 3-2-1 before the road moves. Result chips, star pop, coin count-up, and a small confetti burst on a new endless record. Coin pop, delivery flash, heart loss, and hit shake respect reduced motion.
+- Button labels keep their emoji (Play, Endless, Cities, Retry, and the rest). Rain and night badges on the area grid stay as emoji. Hit and coin particles stay small squares.
 - The simulation is unchanged. `npm run zip` is 7 files, 170,374 bytes (0.162 MB) uncompressed, with relative asset paths.
 
 ## 0.4.0 — 2026-10-15 · Pause, sound, and a 200-level balance pass
