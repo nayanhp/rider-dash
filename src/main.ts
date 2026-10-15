@@ -18,6 +18,7 @@ import {
 } from './platform/launch';
 import { COIN_PACKS, noPayments, packTotal, testPayments, wantsTestPayments, type CoinPack, type PaymentService } from './platform/payments';
 import { load, save } from './platform/storage';
+import { accountView } from './platform/user';
 import { loadSprites } from './render/art';
 import { Renderer } from './render/renderer';
 import { POWER_ICONS } from './render/art';
@@ -106,6 +107,7 @@ let hold: Hold = 'play';
 let blurred = false;
 let manualPause = false;
 let portal: Portal;
+let accountBusy = false;
 let inGameplay = false;
 let adBusy = false;
 let rewardedThisBreak = false;
@@ -638,14 +640,89 @@ function walletChip(corner: boolean): string {
   return `<button class="${cls} coin-chip" data-act="coins" aria-label="${n} coins saved. Get more">${ico(hudCoinUrl)} ${n} <b>+</b></button>`;
 }
 
+function esc(value: string): string {
+  return value.replace(/[&<>"']/g, (ch) => {
+    switch (ch) {
+      case '&': return '&amp;';
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '"': return '&quot;';
+      default: return '&#39;';
+    }
+  });
+}
+
+/** Guest pill or signed-in chip. Nothing when this embed has no CrazyGames accounts. */
+function accountHtml(): string {
+  const view = accountView(portal.user);
+  if (view.kind === 'hidden') return '';
+  if (view.kind === 'guest') {
+    return `<div class="account-bar" id="account-slot"><button type="button" class="account-signin" id="account-signin">Sign in with CrazyGames</button></div>`;
+  }
+  const picture = view.profilePictureUrl
+    ? `<img class="account-pic" src="${esc(view.profilePictureUrl)}" alt="" width="32" height="32">`
+    : `<span class="account-fallback" aria-hidden="true">${esc(view.username.slice(0, 1))}</span>`;
+  return `<div class="account-bar" id="account-slot"><div class="account-chip" role="status" aria-label="Signed in as ${esc(view.username)}">${picture}<span class="account-name">${esc(view.username)}</span></div></div>`;
+}
+
+function mountAccount() {
+  const btn = overlay.querySelector<HTMLButtonElement>('#account-signin');
+  btn?.addEventListener('click', () => {
+    void signInFromMenu(btn);
+  });
+  const img = overlay.querySelector<HTMLImageElement>('.account-pic');
+  if (!img) return;
+  img.addEventListener('error', () => {
+    const letter = portal.user.current?.username.slice(0, 1) || '?';
+    const fallback = document.createElement('span');
+    fallback.className = 'account-fallback';
+    fallback.setAttribute('aria-hidden', 'true');
+    fallback.textContent = letter;
+    img.replaceWith(fallback);
+  });
+}
+
+async function signInFromMenu(btn: HTMLButtonElement) {
+  if (accountBusy) return;
+  accountBusy = true;
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+  try {
+    await portal.user.signIn();
+  } finally {
+    accountBusy = false;
+  }
+  // A run started under the popup keeps going. The next menu reads the new player.
+  // Login can swap the data module to the account save; pick that up before redrawing.
+  pullSavedProgress();
+  if (!playing && !runLive && overlay.querySelector('#account-slot')) showMenu();
+}
+
+/** Stars, wallet, shop, look, and mute live in memory. A login has to read the data module again before the next save. */
+function pullSavedProgress() {
+  reloadProgress();
+  reloadWallet();
+  reloadShop();
+  reloadAvatar();
+  loadUserMute();
+  renderMute();
+}
+
+/** Account pill or chip on the left, saved coins on the right. Coins stay in the corner when accounts are off. */
+function menuChrome(): string {
+  const account = accountHtml();
+  if (!account) return walletChip(true);
+  return `<div class="menu-head">${account}${walletChip(false)}</div>`;
+}
+
 function showMenu() {
   const cur = currentLevel();
   const first = !load('seenHow', false);
   backdrop(cur);
   screen(
-    `<img class="logo" src="${logoUrl}" alt="Rider Dash" width="600" height="406">
+    `${menuChrome()}
+    <img class="logo" src="${logoUrl}" alt="Rider Dash" width="600" height="406">
     <p class="tag">Deliver parcels across India, one neighbourhood at a time.</p>
-    ${walletChip(true)}
     ${first ? `<ul class="how">
       <li><b>Swipe</b> or <b>tap</b> left and right to change lanes</li>
       <li><b>Swipe up</b> to jump potholes and speed breakers</li>
@@ -694,6 +771,7 @@ function showMenu() {
   const swapToTitle = () => logo?.replaceWith(Object.assign(document.createElement('h1'), { className: 'logo-text', textContent: 'Rider Dash' }));
   if (logo?.complete && logo.naturalWidth === 0) swapToTitle();
   else logo?.addEventListener('error', swapToTitle, { once: true });
+  mountAccount();
 }
 
 const pips = (n: number, max: number) =>
@@ -1251,6 +1329,12 @@ if (import.meta.env.DEV) {
 
 async function boot() {
   portal = await bootPortal();
+  portal.user.onChange(() => {
+    // Even mid-run: the module may now be the account save, and the next recordStars must not overwrite it.
+    pullSavedProgress();
+    if (accountBusy || playing || runLive) return;
+    if (overlay.querySelector('#account-slot')) showMenu();
+  });
   reloadProgress();
   reloadWallet();
   reloadShop();

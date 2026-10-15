@@ -16,7 +16,7 @@ npm run zip
 - Total upload ≤ 250 MB
 - ≤ 1500 files
 
-Current production build (`npm run zip`, 15 Oct 2026): **7 files, 170,374 bytes (0.162 MB)** uncompressed. That is the whole initial download apart from the SDK script CrazyGames hosts. Fonts are self-hosted woff2 files inside the zip (no Google Fonts request). It is under both the 50 MB cap and the 20 MB mobile-homepage cap, and under the 1500-file cap. The SDK itself is not in the zip; `index.html` loads it from `https://sdk.crazygames.com/crazygames-sdk-v3.js`.
+Current production build (`npm run zip`, 16 Oct 2026): **7 files, 276,610 bytes (0.264 MB)** uncompressed. That is the whole initial download apart from the SDK script CrazyGames hosts. Fonts are self-hosted woff2 files inside the zip (no Google Fonts request). It is under both the 50 MB cap and the 20 MB mobile-homepage cap, and under the 1500-file cap. The SDK itself is not in the zip; `index.html` loads it from `https://sdk.crazygames.com/crazygames-sdk-v3.js`.
 
 ## What the game calls
 
@@ -32,7 +32,9 @@ The game never talks to `window.CrazyGames` directly. `src/platform/crazygames.t
 | Retry / Next / Ride again, when this break is not offering revive or double coins and has not already played a rewarded ad | `ad.requestAd("midgame")` |
 | Optional “▶ Revive” on the lose screen, once per run | `ad.requestAd("rewarded")` |
 | Optional “▶ Double coins” on a win or an endless result | `ad.requestAd("rewarded")` |
-| Stars, endless best, anonymous id, mute, avatar | `data.getItem` / `data.setItem` |
+| Stars, endless best, wallet, shop, avatar, mute, how-to seen, cop hint, anonymous id | `data.getItem` / `data.setItem` |
+| Boot, when `user.isUserAccountAvailable` | `user.addAuthListener`, then `user.getUser()` |
+| Menu, guest taps “Sign in with CrazyGames” | `user.showAuthPrompt()` |
 
 `gameplayStart` is the first time the player is actually riding, not on the menu. CrazyGames measures initial download up to that first event. The SDK refuses a second `gameplayStart`, `gameplayStop`, or `happytime` inside one second and prints a console error if you try. The adapter keeps the latest of those and sends it once the second has passed, so a crash-and-retry does not spam that error.
 
@@ -48,12 +50,23 @@ Menu, Cities, Areas, Shop, Rider, and Get coins never request an ad, in either d
 
 In the submission flow, set progress save to **Yes, using the Data Module from the CrazyGames SDK**. If that toggle is off, the module throws `dataModuleDisabled` and the game keeps the local save instead — cloud sync will not work until the toggle is on.
 
-The adapter copies any existing progress keys (`rd:stars`, `rd:best`, `rd:pid`, `rd:muted`, `rd:seenHow`, `rd:avatar`, `rd:wallet`) into the data module once, and does not overwrite keys the module already has. After that, reads and writes go to the data module only. Guest data stays in the SDK’s own storage and moves to the account when the player signs in; the game does nothing extra for that.
+The adapter copies any existing progress keys (`rd:stars`, `rd:best`, `rd:pid`, `rd:muted`, `rd:seenHow`, `rd:avatar`, `rd:wallet`, `rd:owned`, `rd:upgrades`, `rd:seenCop`) into the data module once, and does not overwrite keys the module already has. After that, reads and writes go to the data module only.
+
+With the data module on, CrazyGames associates that save with the player. A guest’s module data lives in the SDK’s storage. When they sign in, the SDK loads the account’s cloud save if this game already has one, and otherwise copies the guest save onto the account. Signing out reloads the page and the SDK goes back to the guest save. The [user module docs](https://docs.crazygames.com/sdk/user/) also say that a login reloads the game when you use the data module. Rider Dash does not merge the two saves and does not call `location.reload` itself. On boot it reads the module before deciding whether this is a first launch, so a signed-in player with stars comes back to the menu instead of starting Koramangala again. If a login does not reload (the listener runs first, or the data module is off), the auth listener re-reads the module into the stars, wallet, shop, and avatar caches so the next save cannot write the guest copy over the account. There is no backend, so the game does not call `getUserToken` and ignores `__dangerousUserId`.
+
+## Accounts
+
+Sign-in is CrazyGames’ popup, not a Google, Apple, or Rider Dash account. The menu never calls `window.CrazyGames`. `src/platform/user.ts` is the `UserService`; `bootPortal()` returns it on `portal.user`.
+
+On boot, when the SDK is up and `user.isUserAccountAvailable` is true, the adapter calls `addAuthListener` and `getUser()`. A logged-in player sees a chip on the menu (profile picture and username). A guest sees a small **Sign in with CrazyGames** button, which calls `showAuthPrompt()`. Play stays the main button. A first launch with no saved stars still skips the menu and rides Koramangala; the button or chip is there when they open the menu later. Closing the popup (`userCancelled`) leaves them a guest. Ads, levels, and saves all work without signing in.
+
+The button and the chip are omitted when `isUserAccountAvailable` is false. That is every embed on another site, and localhost with `?user_account_available=false`. Logout is not a listener event: CrazyGames reloads the page. Saved coins stay in the other corner of the menu; on CrazyGames the coin store itself stays hidden until a live payment provider exists.
 
 ## Local testing
 
 - `npm run dev`, then open `http://localhost:5173` or `http://127.0.0.1:5173`. The SDK treats those hosts as `local`: demo ad overlays, console logs for gameplay and happy time, and the data module backed by local storage. Add `?useLocalSdk=true` if you open the game from a LAN IP.
-- `npm test` includes a mock SDK that checks init, loading, gameplay start/stop, happy time, mute during `adStarted`, rewarded-button hiding, and the save migration.
+- On localhost the user module is on by default and `getUser` returns `user1`, so the menu shows a signed-in chip. `?user_response=logged_out` is the guest menu (Sign in button). `?user_response=user2` is the other sample account. `?user_account_available=false` hides the control. `?show_auth_prompt_response=user1`, `user2`, or `user_cancelled` sets what the sign-in button does.
+- `npm test` includes a mock SDK that checks init, loading, gameplay start/stop, happy time, mute during `adStarted`, rewarded-button hiding, the save migration, and accounts (available, unavailable, guest, signed-in, prompt success, cancel, and the auth listener).
 - After upload, use the portal’s QA / preview tool (`crazygames.com` preview). That is the real check; localhost only simulates it.
 
 `?unlock` opens every neighbourhood off the portal and in dev builds. A CrazyGames production build ignores `?unlock` and `?testpay`.
@@ -97,7 +110,7 @@ Suggested shot list for the video: the menu for a beat, a lane change, a jump ov
 3. Set progress save to **Yes, using the Data Module from the CrazyGames SDK**.
 4. Paste the description and controls above. Set orientations to landscape and portrait.
 5. Export the three covers and two videos and upload them. The game has no art team assets for these; they are not in the repo.
-6. Open the portal QA / preview tool and confirm: loading events, `gameplayStart` only once the scooter is moving, `gameplayStop` on the result screen, a demo or real midgame between runs, rewarded revive and double-coins, mute while the ad plays, and progress still there after a refresh (and after a guest login, once the toggle is on).
+6. Open the portal QA / preview tool and confirm: loading events, `gameplayStart` only once the scooter is moving, `gameplayStop` on the result screen, a demo or real midgame between runs, rewarded revive and double-coins, mute while the ad plays, and progress still there after a refresh. As a guest, play a level, then sign in from the menu and confirm the account’s save (or the guest save, if that account is new to the game) is what comes back after CrazyGames reloads. The sign-in control should be absent on an embed.
 7. Submit. Basic Launch can go up with ads disabled; the game already continues when the SDK returns `adsDisabledBasicLaunch`. Full Launch is when they ask for the SDK integration this build already has.
 
 No privacy-policy link is required for this build: nothing is sent to our own analytics. Events stay in the tab, and only in dev builds are they printed to the console. Do not add Google Analytics, pixels, or any other ad network.
@@ -106,7 +119,7 @@ No privacy-policy link is required for this build: nothing is sent to our own an
 
 - Relative asset paths, iframe-sized layout (including the sizes they list: 907×510, 1216×684, 1077×606, 821×462, 1366×768, 1920×1080, 1536×864, 1280×720, 800×450, 1080×607), touch and keyboard, `user-select: none`, safe-area padding on the HUD and menus.
 - No external links, no cross-promo, no in-game fullscreen button, no banner ads.
-- English only. PEGI-12 tone: a scooter, traffic, and a cow. No account login of our own.
+- English only. PEGI-12 tone: a scooter, traffic, and a cow. The only account UI is CrazyGames’ own sign-in prompt. No Google or Apple button, and no token check.
 - Chrome, Firefox, and Safari share one code path (pointer events, canvas 2D, WebAudio). Playwright WebKit with an iPhone 13 profile was used to check touch, the menu, a run, pause, the shop, and premium pattern fills. That is not a physical iPhone: the emulator reported no notch, and it has no audio output device, so the audio context stayed suspended after the unlock gesture.
 
 ## In-game purchases (coin packs)

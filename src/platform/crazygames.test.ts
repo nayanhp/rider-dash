@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { reloadAvatar } from '../avatar';
+import { hasSavedStars, recordStars, reloadProgress, starsFor } from '../progress';
+import { LEVELS } from '../sim/config';
+import { reloadWallet, walletCoins } from '../wallet';
 import { canPlayAudio, setAdMuted, setSdkMuted } from './audio';
 import { AD_REQUEST_TIMEOUT_MS, connectPortal, migrateProgress, resetSdkEmitState, shouldBootSdk, type CrazySDK } from './crazygames';
+import { shouldStartInGameplay } from './launch';
 import { load, save, useStore } from './storage';
+import { createUserService } from './user';
 
 function memoryStore() {
   const mem = new Map<string, string>();
@@ -36,9 +42,11 @@ function fake(partial: {
   hasAdblock?: () => Promise<boolean>;
   requestAd?: CrazySDK['ad']['requestAd'];
   dataThrows?: boolean;
+  data?: Map<string, string>;
+  user?: CrazySDK['user'];
 } = {}): Fake {
   const calls: string[] = [];
-  const data = new Map<string, string>();
+  const data = partial.data ?? new Map<string, string>();
   const sdk: CrazySDK = {
     environment: partial.environment ?? 'local',
     init: partial.init ?? (async () => {
@@ -74,6 +82,7 @@ function fake(partial: {
         data.set(key, value);
       },
     },
+    user: partial.user,
   };
   return { sdk, calls, data };
 }
@@ -263,6 +272,88 @@ describe('progress storage', () => {
     save('best', 5);
     expect(data.get('rd:best')).toBe('5');
     expect(load('best', 0)).toBe(5);
+  });
+
+  it('brings a signed-in save back after a reload, and does not start as a first launch', async () => {
+    const home = LEVELS[0].id;
+    const data = new Map<string, string>();
+    const user = {
+      isUserAccountAvailable: true,
+      getUser: async () => ({ username: 'User.One', profilePictureUrl: 'https://images.crazygames.com/userportal/avatars/1.png' }),
+      showAuthPrompt: async () => null,
+      addAuthListener: () => {},
+    };
+    vi.stubGlobal('localStorage', {
+      getItem: () => null,
+      setItem: () => {},
+      removeItem: () => {},
+    });
+    await connectPortal(fake({ data, user }).sdk);
+    save('stars', { [home]: 2 });
+    save('wallet', 40);
+    save('best', 11);
+    save('owned', ['jacket:stripe']);
+    save('avatar', { jacket: 'red', helmet: 'yellow', skin: 'medium', box: 'yellow' });
+
+    const again = await connectPortal(fake({ data, user }).sdk);
+    reloadProgress();
+    reloadWallet();
+    reloadAvatar();
+    expect(again.user.current?.username).toBe('User.One');
+    expect(starsFor(home)).toBe(2);
+    expect(walletCoins()).toBe(40);
+    expect(load('best', 0)).toBe(11);
+    expect(load('owned', [])).toEqual(['jacket:stripe']);
+    expect(hasSavedStars()).toBe(true);
+    expect(shouldStartInGameplay(hasSavedStars(), false)).toBe(false);
+    expect(data.get('rd:stars')).toBe(JSON.stringify({ [home]: 2 }));
+  });
+
+  it('reads the account save on login instead of writing the guest cache over it', async () => {
+    const home = LEVELS[0].id;
+    const next = LEVELS[1].id;
+    const guestStars = JSON.stringify({ [home]: 1 });
+    const accountStars = JSON.stringify({ [home]: 3, [next]: 1 });
+    let signedIn = false;
+    const data = new Map<string, string>([
+      ['rd:stars', guestStars],
+      ['rd:wallet', '5'],
+    ]);
+    const module = {
+      getItem: (key: string) => {
+        if (signedIn && key === 'rd:stars') return accountStars;
+        if (signedIn && key === 'rd:wallet') return '80';
+        return data.get(key) ?? null;
+      },
+      setItem: (key: string, value: string) => {
+        data.set(key, value);
+      },
+    };
+    useStore(module);
+    reloadProgress();
+    reloadWallet();
+    expect(starsFor(home)).toBe(1);
+    expect(walletCoins()).toBe(5);
+
+    const user = await createUserService({
+      isUserAccountAvailable: true,
+      getUser: async () => null,
+      showAuthPrompt: async () => {
+        signedIn = true;
+        return { username: 'User.One', profilePictureUrl: 'https://images.crazygames.com/userportal/avatars/1.png' };
+      },
+      addAuthListener: () => {},
+    });
+    await user.signIn();
+    // What the menu does after the auth listener: re-read before any later save.
+    reloadProgress();
+    reloadWallet();
+    expect(starsFor(home)).toBe(3);
+    expect(starsFor(next)).toBe(1);
+    expect(walletCoins()).toBe(80);
+    recordStars(home, 1);
+    expect(module.getItem('rd:stars')).toBe(accountStars);
+    expect(data.get('rd:stars')).toBe(guestStars);
   });
 });
 
