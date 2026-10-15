@@ -2,13 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { SPRITES, anchorOffset } from './art';
 
 describe('sprite layout', () => {
-  it('anchors the rider on the wheel contact', () => {
-    // viewBox -16 -30, anchor (48, 124) → (64, 154) in the raster.
-    expect(anchorOffset(SPRITES.rider)).toEqual({ x: 64, y: 154 });
-    expect(anchorOffset(SPRITES['rider-left'])).toEqual(anchorOffset(SPRITES.rider));
-    expect(anchorOffset(SPRITES['rider-right'])).toEqual(anchorOffset(SPRITES.rider));
-  });
-
   it('sizes road objects from the lane width', () => {
     expect(SPRITES.parcel.draw).toBe(0.55);
     expect(SPRITES.coin.draw).toBe(0.32);

@@ -1,0 +1,74 @@
+{
+ "viewBox": "-16 -30 128 160",
+ "anchor": [
+  48,
+  124
+ ],
+ "layerOrder": [
+  "shadow",
+  "scooter",
+  "jacket",
+  "skin",
+  "box",
+  "helmet"
+ ],
+ "roles": {
+  "jacket": {
+   "groupId": "jacket",
+   "attrs": [
+    "fill",
+    "stroke"
+   ],
+   "note": "stroke colours the arms; body outline stays Ink"
+  },
+  "helmet": {
+   "groupId": "helmet",
+   "attrs": [
+    "fill"
+   ]
+  },
+  "skin": {
+   "groupId": "skin",
+   "attrs": [
+    "fill"
+   ]
+  }
+ },
+ "cosmetics": {
+  "jacket": {
+   "red": "#FF5A4E",
+   "teal": "#2BB8A8",
+   "indigo": "#4A5BD9"
+  },
+  "helmet": {
+   "yellow": "#FFCC2E",
+   "white": "#F5F5F5",
+   "magenta": "#E85A9B"
+  },
+  "skin": {
+   "light": "#F0C8A0",
+   "medium": "#D4A574",
+   "deep": "#A66B3D"
+  }
+ },
+ "default": {
+  "jacket": "red",
+  "helmet": "yellow",
+  "skin": "medium"
+ },
+ "files": {
+  "back": "rider-back.svg",
+  "leanLeft": "rider-lean-left.svg",
+  "leanRight": "rider-lean-right.svg",
+  "front": "rider-front.svg"
+ },
+ "front": {
+  "viewBox": "0 0 128 160",
+  "anchor": [
+   64,
+   154
+  ],
+  "usage": "avatar picker preview only, not drawn in-run",
+  "pickerDrawWidth": "96-128 px"
+ }
+}

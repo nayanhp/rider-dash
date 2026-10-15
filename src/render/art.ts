@@ -1,8 +1,5 @@
 // Gameplay sprites, rasterised once. Draw sizes are fractions of the lane width
 // at the object's depth (geo().LW * p.s), except the skyline, which tiles by height.
-import riderBackUrl from '../sprites/rider-back.svg';
-import riderLeftUrl from '../sprites/rider-lean-left.svg';
-import riderRightUrl from '../sprites/rider-lean-right.svg';
 import parcelUrl from '../sprites/parcel.svg';
 import coinUrl from '../sprites/coin.svg';
 import autoUrl from '../sprites/auto-rickshaw.svg';
@@ -33,9 +30,6 @@ export interface SpriteSpec {
 }
 
 export const SPRITES = {
-  rider: spec('rider', riderBackUrl, -16, -30, 128, 160, 48, 124, 0.95, 512),
-  'rider-left': spec('rider-left', riderLeftUrl, -16, -30, 128, 160, 48, 124, 0.95, 512),
-  'rider-right': spec('rider-right', riderRightUrl, -16, -30, 128, 160, 48, 124, 0.95, 512),
   parcel: spec('parcel', parcelUrl, 0, 0, 64, 64, 32, 58, 0.55, 256),
   coin: spec('coin', coinUrl, 0, 0, 48, 48, 24, 24, 0.32, 256),
   auto: spec('auto', autoUrl, 0, 0, 120, 110, 60, 104, 0.95, 512),

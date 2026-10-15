@@ -32,7 +32,7 @@ The game never talks to `window.CrazyGames` directly. `src/platform/crazygames.t
 | Retry / Next / Ride again, when this break is not already a revive offer | `ad.requestAd("midgame")` |
 | Optional “▶ Revive” on the lose screen, once per run | `ad.requestAd("rewarded")` |
 | Optional “▶ Double coins” on a win or an endless result | `ad.requestAd("rewarded")` |
-| Stars, endless best, anonymous id, mute | `data.getItem` / `data.setItem` |
+| Stars, endless best, anonymous id, mute, avatar | `data.getItem` / `data.setItem` |
 
 `gameplayStart` is the first time the player is actually riding, not on the menu. CrazyGames measures initial download up to that first event. The SDK refuses a second `gameplayStart`, `gameplayStop`, or `happytime` inside one second and prints a console error if you try. The adapter keeps the latest of those and sends it once the second has passed, so a crash-and-retry does not spam that error.
 

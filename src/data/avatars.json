@@ -1,0 +1,18 @@
+{
+  "default": { "jacket": "red", "helmet": "yellow", "skin": "medium" },
+  "jacket": [
+    { "id": "red", "name": "Kerb red", "color": "#FF5A4E" },
+    { "id": "teal", "name": "Teal", "color": "#2BB8A8" },
+    { "id": "indigo", "name": "Indigo", "color": "#4A5BD9" }
+  ],
+  "helmet": [
+    { "id": "yellow", "name": "Parcel yellow", "color": "#FFCC2E" },
+    { "id": "white", "name": "White", "color": "#F5F5F5" },
+    { "id": "magenta", "name": "Magenta", "color": "#E85A9B" }
+  ],
+  "skin": [
+    { "id": "light", "name": "Light", "color": "#F0C8A0" },
+    { "id": "medium", "name": "Medium", "color": "#D4A574" },
+    { "id": "deep", "name": "Deep", "color": "#A66B3D" }
+  ]
+}
