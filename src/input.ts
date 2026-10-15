@@ -17,7 +17,11 @@ export class Input {
   /** riderX returns the rider's screen x, so a tap can mean "move toward where I tapped". */
   constructor(target: HTMLElement, private riderX: () => number) {
     target.addEventListener('pointerdown', (e) => {
-      target.setPointerCapture?.(e.pointerId);
+      try {
+        target.setPointerCapture?.(e.pointerId);
+      } catch {
+        /* The pointer can already be gone in an iframe. The swipe still works. */
+      }
       this.start = { x: e.clientX, y: e.clientY };
       this.swiped = false;
     });

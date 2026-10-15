@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { canPlayAudio, setAdMuted, setSdkMuted } from './audio';
-import { connectPortal, migrateProgress, type CrazySDK } from './crazygames';
+import { connectPortal, migrateProgress, resetSdkEmitState, type CrazySDK } from './crazygames';
 import { load, save, useStore } from './storage';
 
 function memoryStore() {
@@ -15,6 +15,8 @@ function memoryStore() {
 }
 
 afterEach(() => {
+  resetSdkEmitState();
+  vi.useRealTimers();
   setSdkMuted(false);
   setAdMuted(false);
   memoryStore();
@@ -155,6 +157,21 @@ describe('CrazyGames portal', () => {
     expect(portal.ads.rewardedAvailable()).toBe(true);
     await portal.ads.request('rewarded');
     expect(portal.ads.rewardedAvailable()).toBe(false);
+  });
+
+  it('waits out the SDK throttle instead of double-firing gameplay', async () => {
+    const { sdk, calls } = fake();
+    const portal = await connectPortal(sdk);
+    vi.useFakeTimers();
+    resetSdkEmitState();
+    portal.gameplayStart();
+    portal.gameplayStop();
+    portal.gameplayStart();
+    expect(calls.filter((c) => c === 'gameplayStart')).toEqual(['gameplayStart']);
+    expect(calls.filter((c) => c === 'gameplayStop')).toEqual(['gameplayStop']);
+    await vi.advanceTimersByTimeAsync(1100);
+    expect(calls.filter((c) => c === 'gameplayStart')).toEqual(['gameplayStart', 'gameplayStart']);
+    vi.useRealTimers();
   });
 
   it('survives a throwing ad request', async () => {

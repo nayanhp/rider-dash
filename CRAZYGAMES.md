@@ -16,7 +16,7 @@ npm run zip
 - Total upload ≤ 250 MB
 - ≤ 1500 files
 
-Current production build (`npm run zip`, 15 Oct 2026): **3 files, 39,271 bytes (0.037 MB)** uncompressed. That is the whole initial download apart from the SDK script CrazyGames hosts. It is under both the 50 MB cap and the 20 MB mobile-homepage cap, and under the 1500-file cap. The SDK itself is not in the zip; `index.html` loads it from `https://sdk.crazygames.com/crazygames-sdk-v3.js`.
+Current production build (`npm run zip`, 15 Oct 2026): **3 files, 39,556 bytes (0.038 MB)** uncompressed. That is the whole initial download apart from the SDK script CrazyGames hosts. It is under both the 50 MB cap and the 20 MB mobile-homepage cap, and under the 1500-file cap. The SDK itself is not in the zip; `index.html` loads it from `https://sdk.crazygames.com/crazygames-sdk-v3.js`.
 
 ## What the game calls
 
@@ -34,7 +34,7 @@ The game never talks to `window.CrazyGames` directly. `src/platform/crazygames.t
 | Optional “▶ Double coins” on a win or an endless result | `ad.requestAd("rewarded")` |
 | Stars, endless best, anonymous id | `data.getItem` / `data.setItem` |
 
-`gameplayStart` is the first time the player is actually riding, not on the menu. CrazyGames measures initial download up to that first event.
+`gameplayStart` is the first time the player is actually riding, not on the menu. CrazyGames measures initial download up to that first event. The SDK refuses a second `gameplayStart`, `gameplayStop`, or `happytime` inside one second and prints a console error if you try. The adapter keeps the latest of those and sends it once the second has passed, so a crash-and-retry does not spam that error.
 
 While an ad is requested, the UI is blocked (`One moment…`) so the run cannot continue. Audio is muted only in `adStarted`, and restored on `adFinished` or `adError`. `muteAudio` from `game.settings` (and `addSettingsChangeListener`) forces mute and wins over the ad ending. There is no soundtrack yet; `canPlayAudio()` in `src/platform/audio.ts` is the gate every future clip has to pass. `document.documentElement.dataset.audio` is `on` or `muted`.
 

@@ -83,6 +83,37 @@ function call(fn: () => void) {
   }
 }
 
+// gameplayStart, gameplayStop and happytime are throttled inside the SDK at 1s.
+// A second call inside that window is not ignored quietly: the SDK console.errors.
+// Keep the latest request and send it once the window has passed.
+const SDK_EVENT_GAP_MS = 1100;
+const nextEventAt = new Map<string, number>();
+const eventTimer = new Map<string, ReturnType<typeof setTimeout>>();
+
+/** Test hook. The gap is process-wide so one spec cannot throttle the next. */
+export function resetSdkEmitState() {
+  for (const timer of eventTimer.values()) clearTimeout(timer);
+  eventTimer.clear();
+  nextEventAt.clear();
+}
+
+function emit(name: string, fn: () => void) {
+  const now = Date.now();
+  const at = nextEventAt.get(name) ?? 0;
+  if (now >= at) {
+    nextEventAt.set(name, now + SDK_EVENT_GAP_MS);
+    call(fn);
+    return;
+  }
+  const pending = eventTimer.get(name);
+  if (pending) clearTimeout(pending);
+  eventTimer.set(name, setTimeout(() => {
+    eventTimer.delete(name);
+    nextEventAt.set(name, Date.now() + SDK_EVENT_GAP_MS);
+    call(fn);
+  }, at - now));
+}
+
 /**
  * Copy pre-SDK localStorage progress into the data module once. Never overwrites a
  * value the module already has. Returns 'disabled' when the module refuses calls
@@ -192,9 +223,9 @@ export async function connectPortal(sdk: CrazySDK | null): Promise<Portal> {
   return {
     mode: sdk.environment,
     loadingStop: () => call(() => sdk.game.loadingStop()),
-    gameplayStart: () => call(() => sdk.game.gameplayStart()),
-    gameplayStop: () => call(() => sdk.game.gameplayStop()),
-    happytime: () => call(() => sdk.game.happytime()),
+    gameplayStart: () => emit('gameplayStart', () => sdk.game.gameplayStart()),
+    gameplayStop: () => emit('gameplayStop', () => sdk.game.gameplayStop()),
+    happytime: () => emit('happytime', () => sdk.game.happytime()),
     ads,
   };
 }
