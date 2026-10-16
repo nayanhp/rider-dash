@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.15.0 — 2026-10-16 · CrazyGames launch fixes
+
+- Coin store is hidden on CrazyGames until a live `PaymentService` exists. The `+` on coin chips
+  and "Get coins" are gone there; the saved balance stays. GitHub Pages and local dev still
+  show the store.
+- `window.rd` is only attached in dev builds (`attachDebug(import.meta.env.DEV)`).
+- `?unlock` and `?testpay` are ignored on a CrazyGames production build. They still work
+  off-portal and in dev builds. Localhost keeps test purchases.
+- A first-time player (no stars saved) starts Koramangala immediately, with the in-run hints.
+  Returning players, and `?unlock` where that query counts, still get the menu.
+- Midgame ads only on Retry, Next, and Ride again. None when entering or leaving Shop, Rider,
+  Get coins, Cities, Areas, or the menu. A break that is offering revive or double coins, or
+  that already played a rewarded ad, does not also play a midgame — including when the player
+  skips the video.
+- iPhone-minded layout: HUD, hint, combo, menus, and the mute button follow safe-area insets
+  on all four edges. Premium rider previews use blob URLs so WebKit can paint SVG patterns
+  and gradients. Audio also resumes on `touchend`. Checked in Playwright WebKit with iPhone
+  emulation, not on a physical phone.
+
 ## 0.14.2 — 2026-10-16 · Logo fallback
 
 - If the menu logo can't load (offline, dropped connection), the menu shows "Rider Dash" as a

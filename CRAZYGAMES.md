@@ -29,7 +29,7 @@ The game never talks to `window.CrazyGames` directly. `src/platform/crazygames.t
 | A run actually starts or resumes (revive included) | `game.gameplayStart()` |
 | The run ends and a result or menu is showing | `game.gameplayStop()` |
 | New endless record, or the last area of a city is cleared | `game.happytime()` |
-| Retry / Next / Ride again, when this break is not already a revive offer | `ad.requestAd("midgame")` |
+| Retry / Next / Ride again, when this break is not offering revive or double coins and has not already played a rewarded ad | `ad.requestAd("midgame")` |
 | Optional “▶ Revive” on the lose screen, once per run | `ad.requestAd("rewarded")` |
 | Optional “▶ Double coins” on a win or an endless result | `ad.requestAd("rewarded")` |
 | Stars, endless best, anonymous id, mute, avatar | `data.getItem` / `data.setItem` |
@@ -40,9 +40,9 @@ While an ad is requested, the UI is blocked (`One moment…`) and the result but
 
 Switching tabs or leaving the window pauses a live run behind a Resume overlay. That pause does not call `gameplayStop` or `gameplayStart`; CrazyGames already handles focus on its side.
 
-Ads that error (`unfilled`, `adCooldown`, `adblock`, `adsDisabledBasicLaunch`, …) do not grant a reward and do not freeze the game. Rewarded buttons are hidden when an ad blocker is detected or after the SDK reports that ads are disabled, so a Basic Launch build has no dead “watch a video” button. A lose screen that offers revive does not also play a midgame ad. Watching double-coins suppresses the midgame on that same break, so two videos never play back to back.
+Ads that error (`unfilled`, `adCooldown`, `adblock`, `adsDisabledBasicLaunch`, …) do not grant a reward and do not freeze the game. Rewarded buttons are hidden when an ad blocker is detected or after the SDK reports that ads are disabled, so a Basic Launch build has no dead “watch a video” button. A lose screen that offers revive does not also play a midgame ad. A win or endless result that is offering double coins does not play a midgame either, even if the player skips the video and presses Next, Retry, or Ride again. Watching the video sets the same suppression, so two videos never play back to back.
 
-Menu, Cities, and Areas never request an ad. The main Play button starts the current neighbourhood in one click. Opening another city is still there for anyone who wants it.
+Menu, Cities, Areas, Shop, Rider, and Get coins never request an ad, in either direction. Those screens are browsing, not a level break. The main Play button starts the current neighbourhood in one click. Opening another city is still there for anyone who wants it. The rules live in `midgameOnLeave` (`src/platform/launch.ts`); the UI goes through that instead of calling the SDK.
 
 ## Progress save (portal toggle)
 
@@ -56,7 +56,7 @@ The adapter copies any existing progress keys (`rd:stars`, `rd:best`, `rd:pid`, 
 - `npm test` includes a mock SDK that checks init, loading, gameplay start/stop, happy time, mute during `adStarted`, rewarded-button hiding, and the save migration.
 - After upload, use the portal’s QA / preview tool (`crazygames.com` preview). That is the real check; localhost only simulates it.
 
-`?unlock` still opens every neighbourhood.
+`?unlock` opens every neighbourhood off the portal and in dev builds. A CrazyGames production build ignores `?unlock` and `?testpay`.
 
 ## Paste-ready listing
 
@@ -111,7 +111,7 @@ No privacy-policy link is required for this build: nothing is sent to our own an
 
 ## In-game purchases (coin packs)
 
-CrazyGames supports in-game purchases through Xsolla, but only by invitation, and only for signed-in players. The game already routes purchases through `PaymentService` (`src/platform/payments.ts`); off CrazyGames and until the invite, it uses `noPayments()` and the store shows "Soon". To go live:
+CrazyGames supports in-game purchases through Xsolla, but only by invitation, and only for signed-in players. The game already routes purchases through `PaymentService` (`src/platform/payments.ts`). On CrazyGames the coin store is hidden until that service is `live` (no "Soon" button, no `+` on coin chips). Off the portal, `noPayments()` shows "Soon", and localhost or `?testpay` uses test purchases. To go live:
 
 1. Ask CrazyGames for in-game purchases. They set up the Xsolla token method and give you an Xsolla project ID.
 2. In Xsolla Publisher Account, create the four coin packs from `src/data/shop.json` → `coinPacks` as virtual items.

@@ -10,7 +10,7 @@ import {
 } from './avatar';
 import { useStore } from './platform/storage';
 import roles from './sprites/avatars/avatar-roles.json';
-import { PICKER_DRAW_PX, RIDER_ANCHOR, RIDER_RASTER, RIDER_SOURCES, tintRiderSvg } from './render/riderArt';
+import { PICKER_DRAW_PX, RIDER_ANCHOR, RIDER_RASTER, RIDER_SOURCES, svgImageUrl, tintRiderSvg } from './render/riderArt';
 
 beforeEach(() => {
   const mem = new Map<string, string>();
@@ -110,6 +110,9 @@ describe('premium finishes', () => {
       expect(tinted).toMatch(/id="box"><rect[^>]*fill="url\(#rd-box\)"/);
       expect(tinted).toContain('<pattern id="rd-helmet"');
       expect(tinted).toContain('<linearGradient id="rd-jacket"');
+      const url = svgImageUrl(tinted);
+      expect(url.startsWith('blob:') || url.startsWith('data:image/svg+xml')).toBe(true);
+      expect(svgImageUrl(tinted)).toBe(url);
     }
   });
 

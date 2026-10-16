@@ -78,11 +78,11 @@ export function tintRiderSvg(svg: string, colors: AvatarColors): string {
 
 /** Any pose as an image URL, for previews. */
 export function poseUrl(pose: RiderPose | 'front', colors: AvatarColors): string {
-  return svgUrl(tintRiderSvg(RIDER_SOURCES[pose], colors));
+  return svgImageUrl(tintRiderSvg(RIDER_SOURCES[pose], colors));
 }
 
 export function frontPreviewUrl(colors: AvatarColors): string {
-  return svgUrl(tintRiderSvg(frontSvg, colors));
+  return svgImageUrl(tintRiderSvg(frontSvg, colors));
 }
 
 interface Cache {
@@ -99,8 +99,24 @@ function keyOf(colors: AvatarColors): string {
   return JSON.stringify(colors);
 }
 
-function svgUrl(svg: string): string {
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+const previewUrls = new Map<string, string>();
+
+/**
+ * Image URL for an SVG string. WebKit does not resolve `url(#id)` gradient and pattern
+ * fills inside a data-URI `<img>` (premium jackets, helmets, boxes), so previews use a
+ * blob URL: that document can see its own defs. The blob lives for the session.
+ */
+export function svgImageUrl(svg: string): string {
+  const cached = previewUrls.get(svg);
+  if (cached) return cached;
+  let url: string;
+  if (typeof Blob !== 'undefined' && typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+    url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+  } else {
+    url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  }
+  previewUrls.set(svg, url);
+  return url;
 }
 
 function loadImage(url: string): Promise<HTMLImageElement> {

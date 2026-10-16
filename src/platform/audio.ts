@@ -178,7 +178,10 @@ function ensure(): AudioContext | null {
   return ctx;
 }
 
-/** Call from a click, tap, or key. Browsers ignore audio started any other way. */
+/**
+ * Call from a click, tap, or key. Browsers ignore audio started any other way.
+ * iOS Safari only resumes a context inside the gesture, so this stays synchronous.
+ */
 export function unlock() {
   const audio = ensure();
   if (!audio) return;

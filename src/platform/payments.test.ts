@@ -7,6 +7,10 @@ describe('payments', () => {
     expect(wantsTestPayments({ hostname: '127.0.0.1', search: '' })).toBe(true);
     expect(wantsTestPayments({ hostname: 'nayanhp.github.io', search: '' })).toBe(false);
     expect(wantsTestPayments({ hostname: 'nayanhp.github.io', search: '?testpay' })).toBe(true);
+    expect(wantsTestPayments({ hostname: 'localhost', search: '?testpay', portal: 'crazygames', dev: false })).toBe(false);
+    expect(wantsTestPayments({ hostname: 'games.crazygames.com', search: '?testpay', portal: 'crazygames' })).toBe(false);
+    expect(wantsTestPayments({ hostname: 'localhost', search: '', portal: 'crazygames', dev: true })).toBe(true);
+    expect(wantsTestPayments({ hostname: 'nayanhp.github.io', search: '?testpay', portal: 'crazygames', dev: true })).toBe(true);
   });
 
   it('with no provider, nothing can be bought', async () => {
