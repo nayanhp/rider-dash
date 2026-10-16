@@ -42,6 +42,19 @@ export interface LaneMove {
   laneSpeed: number;
 }
 
+/**
+ * A rival rider coming for a parcel. It pulls up beside you ('arrive'), flashes for a moment
+ * ('alongside'), then lunges. Swipe into its lane to shove it off; be a lane further away to
+ * dodge. A stolen parcel is dropped on the road ahead, so it can be won back.
+ */
+export interface Thief {
+  lane: number;
+  phase: 'arrive' | 'alongside';
+  ticksLeft: number;
+  /** Distance from the rider along the road: negative while catching up from behind. */
+  offset: number;
+}
+
 /** A street dog chasing the rider. It runs a little faster than the rider's cruising speed. */
 export interface DogChase {
   ticksLeft: number;
@@ -64,6 +77,7 @@ export type SimEvent =
   | { type: 'stolen' }
   | { type: 'tip'; coins: number }
   | { type: 'cold' }
+  | { type: 'thief'; phase: 'arrive' | 'shove' | 'steal' | 'dodge' | 'outran' }
   | { type: 'jump' }
   | { type: 'won' }
   | { type: 'lost' }
@@ -102,6 +116,8 @@ export interface RunState {
   /** Hot parcels on board, and ticks before they go cold. */
   hotCarry: number;
   hotT: number;
+  /** A rival rider after a parcel. */
+  thief: Thief | null;
   mods: RunMods;
   invulnT: number;
   hearts: number;
@@ -169,6 +185,7 @@ export function createRun(cfg: LevelConfig, seed: number, opts: RunOptions = {})
     wetT: 0,
     hotCarry: 0,
     hotT: 0,
+    thief: null,
     carry: 0,
     delivered: 0,
     coins: 0,
@@ -278,6 +295,49 @@ export function addMover(s: RunState, rng: Rng, kind: MoverKind, lane: number, z
   return o;
 }
 
+export function startThief(s: RunState, rng: Rng) {
+  const me = Math.round(s.lx);
+  const lane = me === 1 ? (rng.next() < 0.5 ? 0 : 2) : 1;
+  s.thief = { lane, phase: 'arrive', ticksLeft: s.tuning.thiefArriveTicks, offset: s.tuning.thiefStartOffset };
+  s.events.push({ type: 'thief', phase: 'arrive' });
+}
+
+function tickThief(s: RunState) {
+  const th = s.thief;
+  if (!th) return;
+  const t = s.tuning;
+  const end = (phase: 'shove' | 'steal' | 'dodge' | 'outran') => {
+    s.thief = null;
+    s.events.push({ type: 'thief', phase });
+  };
+  if (hasPower(s, 'nitro')) return end('outran');
+  const me = Math.round(s.lx);
+  if (th.phase === 'arrive') {
+    th.ticksLeft--;
+    th.offset = t.thiefStartOffset * Math.max(0, th.ticksLeft) / t.thiefArriveTicks;
+    if (th.ticksLeft <= 0) {
+      th.phase = 'alongside';
+      th.ticksLeft = t.thiefWarnTicks;
+    }
+    return;
+  }
+  if (me === th.lane) {
+    // You swerved into them: shoved off the road.
+    s.coins += t.thiefShoveCoins * coinMult(s);
+    return end('shove');
+  }
+  if (--th.ticksLeft > 0) return;
+  if (s.carry > 0 && Math.abs(me - th.lane) === 1) {
+    s.carry--;
+    s.hotCarry = Math.min(s.hotCarry, s.carry);
+    s.combo = 0;
+    // The thief fumbles it: the parcel lands on the road ahead in the thief's lane.
+    addObj(s, 'parcel', th.lane, s.dist + t.thiefDropAhead);
+    return end('steal');
+  }
+  end('dodge');
+}
+
 export function startDog(s: RunState) {
   s.dog = { ticksLeft: s.tuning.dogTicks, gap: s.tuning.dogStartGap };
   s.events.push({ type: 'dog', phase: 'start' });
@@ -366,6 +426,10 @@ export function spawnRow(s: RunState, z: number) {
     const hazards = s.cfg.hazards ?? [];
     if (hazards.length && rng.next() < (s.cfg.hazardChance ?? 0)) addObj(s, rng.pick(hazards), lanes[2], z - t.hazardGap);
     addReward(s, rng, lanes[2], z);
+  }
+  const thiefChance = s.cfg.thiefChance ?? 0;
+  if (thiefChance > 0 && !s.thief && s.carry > 0 && !s.zone && s.tick >= t.thiefMinTick && rng.next() < thiefChance) {
+    startThief(s, rng);
   }
   const dogChance = s.cfg.dogChance ?? 0;
   if (dogChance > 0 && !s.dog && !s.zone && s.tick >= t.dogMinTick && rng.next() < dogChance) startDog(s);
@@ -569,6 +633,7 @@ function tryRevive(s: RunState, payCoins: boolean) {
   s.revived = true;
   s.status = 'running';
   s.dog = null;
+  s.thief = null;
   s.powers = {};
   s.hearts = s.tuning.reviveHearts;
   s.invulnT = s.tuning.invulnTicks;
@@ -615,6 +680,7 @@ export function step(s: RunState, cmds: readonly Command[] = []) {
 
   moveObjects(s, dt);
   chaseDog(s, dt);
+  tickThief(s);
   tickPowers(s);
 
   const myLane = Math.round(s.lx);

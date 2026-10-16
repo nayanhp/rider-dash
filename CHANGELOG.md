@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.13.0 — 2026-10-16 · Parcel thieves (Phase 4c)
+
+- From Hyderabad area 6 (Madhapur, with a "New:" tip) onward, a rival rider sometimes comes for
+  a parcel, only while you carry one. It pulls up beside you, flashes a red "!" for about a
+  second, then lunges. Swerve into it to shove it off (+10 coins); be a lane further away to
+  dodge; nitro leaves it behind. If it grabs a parcel, it drops it on the road ahead in its
+  lane, so you can win it back. Never costs a heart.
+- Rival art: the rider drawn in dark colours on a grey scooter.
+- The practice bot shoves thieves when the lane is clear. Balance now uses 10 seeds per area
+  (less noise): Bengaluru 99% → Ahmedabad 77%. 115 tests.
+
 ## 0.12.0 — 2026-10-16 · City signature threats (Phase 4b)
 
 Each city after Bengaluru introduces its feature in area 3 with a "New:" tip; that area is kept

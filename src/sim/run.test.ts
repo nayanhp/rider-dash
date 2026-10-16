@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ENDLESS, LEVELS, TUNING } from './config';
 import { Rng } from './rng';
-import { addMover, addObj, addPower, airborne, hasPower, startDog, beatBest, carryCap, createRun, targetSpeed, replay, reviveStillOpen, score, speed, spawnRow, step, type Command, type InputLog } from './run';
+import { addMover, addObj, addPower, airborne, hasPower, startDog, startThief, beatBest, carryCap, createRun, targetSpeed, replay, reviveStillOpen, score, speed, spawnRow, step, type Command, type InputLog } from './run';
 
 const L1 = LEVELS[0];
 const ALL_KINDS = LEVELS[3];
@@ -582,5 +582,84 @@ describe('city features', () => {
     const walkers = s.objs.filter((o) => o.kind === 'walker');
     expect(walkers).toHaveLength(2);
     expect(walkers[0].lane).toBe(2 - walkers[1].lane);
+  });
+});
+
+describe('parcel thieves', () => {
+  const carrying = () => {
+    const s = createRun({ ...LEVELS.at(-1)!, goal: 50 }, 1, { autoSpawn: false });
+    s.carry = 2;
+    return s;
+  };
+  const toAlongside = (s: ReturnType<typeof carrying>) => {
+    startThief(s, new Rng(4));
+    while (s.thief?.phase === 'arrive') step(s);
+  };
+  const ending = (s: ReturnType<typeof carrying>) => {
+    for (let i = 0; i < 200 && s.thief; i++) step(s);
+  };
+
+  it('swerving into the thief shoves it off and pays a bonus', () => {
+    const s = carrying();
+    toAlongside(s);
+    const lane = s.thief!.lane;
+    step(s, [lane < s.lane ? 'left' : 'right']);
+    let shoved = false;
+    for (let i = 0; i < 30 && s.thief; i++) {
+      step(s);
+      shoved ||= s.events.some((e) => e.type === 'thief' && e.phase === 'shove');
+    }
+    expect(shoved).toBe(true);
+    expect(s.carry).toBe(2);
+    expect(s.coins).toBe(TUNING.thiefShoveCoins);
+  });
+
+  it('staying beside it loses a parcel, which lands on the road ahead', () => {
+    const s = carrying();
+    toAlongside(s);
+    const lane = s.thief!.lane;
+    ending(s);
+    expect(s.carry).toBe(1);
+    const dropped = s.objs.find((o) => o.kind === 'parcel');
+    expect(dropped?.lane).toBe(lane);
+    expect(dropped!.z).toBeGreaterThan(s.dist);
+    expect(s.hearts).toBe(TUNING.hearts);
+  });
+
+  it('moving a lane further away dodges it', () => {
+    const s = carrying(); // rider in the middle lane, so the thief comes up on one side
+    startThief(s, new Rng(4));
+    const side = s.thief!.lane;
+    while (s.thief?.phase === 'arrive') step(s);
+    step(s, [side === 0 ? 'right' : 'left']);
+    let dodged = false;
+    for (let i = 0; i < 200 && s.thief; i++) {
+      step(s);
+      dodged ||= s.events.some((e) => e.type === 'thief' && e.phase === 'dodge');
+    }
+    expect(dodged).toBe(true);
+    expect(s.carry).toBe(2);
+  });
+
+  it('nitro leaves the thief behind', () => {
+    const s = carrying();
+    startThief(s, new Rng(4));
+    s.powers.nitro = 120;
+    step(s);
+    expect(s.thief).toBeNull();
+    expect(s.carry).toBe(2);
+  });
+
+  it('only comes for you while you carry a parcel', () => {
+    const level = { ...LEVELS.at(-1)!, thiefChance: 1, threats: [], dogChance: 0, zoneChance: 0, hazards: [] };
+    const empty = createRun(level, 1, { autoSpawn: false });
+    empty.tick = TUNING.thiefMinTick;
+    spawnRow(empty, 1000);
+    expect(empty.thief).toBeNull();
+    const full = createRun(level, 1, { autoSpawn: false });
+    full.tick = TUNING.thiefMinTick;
+    full.carry = 1;
+    spawnRow(full, 1000);
+    expect(full.thief).not.toBeNull();
   });
 });

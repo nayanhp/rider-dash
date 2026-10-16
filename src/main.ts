@@ -12,7 +12,7 @@ import { load, save } from './platform/storage';
 import { loadSprites } from './render/art';
 import { Renderer } from './render/renderer';
 import { POWER_ICONS } from './render/art';
-import { frontPreviewUrl, PICKER_DRAW_PX, prepareAvatar } from './render/riderArt';
+import { frontPreviewUrl, PICKER_DRAW_PX, prepareAvatar, prepareRival } from './render/riderArt';
 import playUrl from './sprites/ui-play.svg';
 import retryUrl from './sprites/ui-retry.svg';
 import menuUrl from './sprites/ui-menu.svg';
@@ -1105,6 +1105,7 @@ async function boot() {
     Promise.all([
       loadSprites(),
       prepareAvatar(colorsFor(avatarChoice())),
+      prepareRival(),
       fonts?.load('16px "Lilita One"'),
       fonts?.load('700 16px "Baloo 2"'),
     ]).catch((err) => console.error(err)),

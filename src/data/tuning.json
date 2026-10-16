@@ -92,5 +92,11 @@
   "hotTip": 15,
   "zoneRows": 4,
   "tramLen": 170,
-  "hazardGap": 130
+  "hazardGap": 130,
+  "thiefArriveTicks": 50,
+  "thiefWarnTicks": 66,
+  "thiefStartOffset": -180,
+  "thiefDropAhead": 520,
+  "thiefShoveCoins": 10,
+  "thiefMinTick": 240
 }

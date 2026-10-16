@@ -114,3 +114,18 @@ export function drawAvatarPose(
   const sc = drawW / VB_W;
   ctx.drawImage(canvas, x - RIDER_ANCHOR.x * sc, y - RIDER_ANCHOR.y * sc, VB_W * sc, VB_H * sc);
 }
+
+/** The parcel thief: the same rider art in dark colours on a grey scooter. */
+const RIVAL_COLORS: AvatarColors = { jacket: '#3B3F4F', helmet: '#1E1E26', skin: '#C68642' };
+let rival: HTMLCanvasElement | null = null;
+
+export async function prepareRival(): Promise<void> {
+  if (rival) return;
+  rival = await raster(tintRiderSvg(backSvg, RIVAL_COLORS).replace(/#E04A3F/gi, '#5B6075'));
+}
+
+export function drawRival(ctx: CanvasRenderingContext2D, x: number, y: number, drawW: number) {
+  if (!rival || drawW < 1) return;
+  const sc = drawW / VB_W;
+  ctx.drawImage(rival, x - RIDER_ANCHOR.x * sc, y - RIDER_ANCHOR.y * sc, VB_W * sc, VB_H * sc);
+}

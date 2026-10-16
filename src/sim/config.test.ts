@@ -146,3 +146,13 @@ describe('city signature features', () => {
     }
   });
 });
+
+describe('parcel thieves schedule', () => {
+  it('first come in Hyderabad, area 6, and carry on after', () => {
+    const first = LEVELS.findIndex((l) => (l.thiefChance ?? 0) > 0);
+    expect(LEVELS[first].city).toBe('Hyderabad');
+    expect(CITIES[3].levels.indexOf(LEVELS[first]) + 1).toBe(6);
+    expect(LEVELS[first].tip).toMatch(/thie/i);
+    expect(LEVELS.slice(first).every((l) => (l.thiefChance ?? 0) > 0)).toBe(true);
+  });
+});

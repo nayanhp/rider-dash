@@ -205,6 +205,11 @@
         "tip": "New: construction zones. Barricades close two lanes for a stretch. Find the open lane and stay in it."
       },
       {
+        "at": 80,
+        "feature": "thief",
+        "tip": "New: parcel thieves. A rival pulls up beside you and lunges for your box. Swipe into them to shove them off, or move a lane away. If they grab one, they drop it up ahead."
+      },
+      {
         "at": 102,
         "feature": "hot",
         "tip": "New: hot food. Steaming parcels pay a tip if you deliver them within eight seconds."
@@ -235,6 +240,8 @@
     "tramChance": 0.12,
     "teachTramChance": 0.22,
     "hazardChance": 0.18,
-    "teachHazardChance": 0.4
+    "teachHazardChance": 0.4,
+    "thiefChance": 0.06,
+    "teachThiefChance": 0.22
   }
 }

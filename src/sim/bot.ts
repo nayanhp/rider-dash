@@ -101,6 +101,9 @@ function decide(s: RunState, queue: readonly (Command | null)[]): Command | null
     if (dz > ideal - slack && dz < ideal + slack) return 'jump';
   }
 
+  // A thief lining up its lunge: shove it if its lane is safe to swerve into.
+  if (s.thief?.phase === 'alongside' && !blocked(s.thief.lane)) desired = s.thief.lane;
+
   // Crossing two lanes passes through the middle one. Wait if something blocks it.
   if (Math.abs(desired - committed) === 2 && blocked(1) && !blocked(committed)) desired = committed;
 

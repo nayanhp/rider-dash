@@ -23,7 +23,7 @@ export type HitKind = ObstacleKind | MoverKind | 'dog';
  * costing a heart; a monkey grabs a parcel instead.
  */
 export const JUMPABLE: ReadonlySet<ObjKind> = new Set(['hole', 'bump', 'puddle', 'monkey']);
-export type CityFeature = 'puddle' | 'fog' | 'zone' | 'hot' | 'monkey' | 'tram' | 'crowd';
+export type CityFeature = 'puddle' | 'fog' | 'zone' | 'hot' | 'monkey' | 'tram' | 'crowd' | 'thief';
 export const isMover = (k: ObjKind): k is MoverKind => (MOVERS as readonly string[]).includes(k);
 
 export interface LevelConfig {
@@ -63,6 +63,8 @@ export interface LevelConfig {
   /** Kolkata: the lane with tram rails, and the chance per row that a tram comes down it. */
   tramLane?: number;
   tramChance?: number;
+  /** Chance per row that a rival rider comes for a parcel (only while carrying). */
+  thiefChance?: number;
   /** Power-ups that can appear, the share of reward slots that hold one, and the one this area introduces. */
   powers?: PowerKind[];
   powerChance?: number;
@@ -172,6 +174,7 @@ export function buildCities(cities: CityData[], data: LevelsData = levelsData): 
         ...(g >= data.brake.at && { brake: true }),
         ...(fog && { fog }),
         ...(has('zone') && { zoneChance: teaching('zone') ? ct.teachZoneChance : ct.zoneChance }),
+        ...(has('thief') && { thiefChance: teaching('thief') ? ct.teachThiefChance : ct.thiefChance }),
         ...(has('hot') && { hotChance: teaching('hot') ? ct.teachHotChance : ct.hotChance }),
         ...(tram && { tramLane: ai % 2 === 0 ? 0 : 2, tramChance: teaching('tram') ? ct.teachTramChance : ct.tramChance }),
         ...(powers.length && {

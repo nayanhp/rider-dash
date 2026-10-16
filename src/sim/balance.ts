@@ -3,7 +3,7 @@
 import { CITIES, LEVELS, type LevelConfig } from './config';
 import { playLevel } from './bot';
 
-export const BALANCE_SEEDS = [1, 2, 3, 4, 5] as const;
+export const BALANCE_SEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
 
 export interface LevelBalance {
   index: number;

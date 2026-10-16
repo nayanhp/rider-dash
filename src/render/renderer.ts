@@ -10,7 +10,7 @@ const POWER_RING: Record<PowerKind, string> = {
 const POWER_NAMES: Record<PowerKind, string> = {
   magnet: 'Magnet!', net: 'Parcel net!', helmet: 'Helmet on!', nitro: 'Nitro!', double: '2× coins!', heart: '+1 heart!',
 };
-import { drawAvatarPose, RIDER_DRAW, type RiderPose } from './riderArt';
+import { drawAvatarPose, drawRival, RIDER_DRAW, type RiderPose } from './riderArt';
 
 const FONT = '"Lilita One","Baloo 2",system-ui,sans-serif';
 const BUILDING_COLORS = ['#F3D9A4', '#A7D9F0', '#FFC2BD', '#C9E6B4', '#E8D2FF'];
@@ -126,6 +126,16 @@ export class Renderer {
         this.popup(x, py + 64, `Hot food tip +${e.coins} ₹`, '#D97A00');
       } else if (e.type === 'cold') {
         this.popup(x, py - 30, 'The food went cold', '#6F7FA0');
+      } else if (e.type === 'thief') {
+        const msg = {
+          arrive: ['Parcel thief! Swipe into them', '#C23A30'],
+          shove: ['Shoved off! +coins', '#3A9A1E'],
+          steal: ['Stolen! It fell up ahead', '#C23A30'],
+          dodge: ['Dodged the thief', '#3A9A1E'],
+          outran: ['Left the thief behind', '#2F8CFF'],
+        }[e.phase];
+        this.popup(x, py - 30, msg[0], msg[1]);
+        if (e.phase === 'shove') this.burst(x, py + 20, '#FFCC2E', 12);
       } else if (e.type === 'revive') {
         this.popup(x, py, 'Revived!', '#3A9A1E');
         this.burst(x, py + 20, '#5DD039', 18);
@@ -369,6 +379,7 @@ export class Renderer {
     if (s.braking) this.drawBrakeLight(s, g.yP);
     if (s.powers.nitro) this.drawNitro(s, g.yP);
     if (s.dog) this.drawDog(s, g.yP);
+    if (s.thief) this.drawThief(s);
 
     if (night) {
       c.fillStyle = 'rgba(10,12,40,.25)';
@@ -382,6 +393,18 @@ export class Renderer {
       c.fillRect(-20, -20, W + 40, H + 40);
     }
     c.restore();
+  }
+
+  /** The rival rider beside you. While it lines up its lunge, a red "!" flashes over it. */
+  private drawThief(s: RunState) {
+    const th = s.thief;
+    if (!th) return;
+    const p = this.proj(th.offset, th.lane);
+    const drawW = RIDER_DRAW * this.geo().LW * p.s;
+    drawRival(this.ctx, p.x, p.y, drawW);
+    if (th.phase === 'alongside' && (this.reduceMotion || Math.floor(s.tick / 6) % 2 === 0)) {
+      this.text('!', p.x, p.y - drawW * 1.35, drawW * 0.45, '#FFFAF0', '#C23A30');
+    }
   }
 
   /** Hot food: three wavy steam lines. */
