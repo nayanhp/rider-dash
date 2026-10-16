@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `scripts/record-previews.mjs` records the two CrazyGames preview videos from a production build (Playwright headless frames, ffmpeg H.264, no audio). It does not upload anything. The mp4s stay out of git.
+
 ## 0.16.0 — 2026-10-16 · Harder curve, traffic cop
 
 - Parcel goals ramp much faster. The first two Bengaluru areas stay at 2 parcels and the opening speed. By area 5 the goal has stepped up, and the last area asks for 20 (double the old cap of 10).

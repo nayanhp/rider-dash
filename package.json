@@ -10,9 +10,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "balance": "node scripts/balance-check.mjs",
-    "zip": "npm run build && node scripts/zip-build.mjs"
+    "zip": "npm run build && node scripts/zip-build.mjs",
+    "record:previews": "node scripts/record-previews.mjs"
   },
   "devDependencies": {
+    "playwright": "^1.56.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.4",
     "vitest": "^5.0.4"
