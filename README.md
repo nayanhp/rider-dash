@@ -28,4 +28,4 @@ Switching tabs or leaving the window pauses a run until you tap Resume. The spea
 - `src/sim/bot.ts`, `src/sim/balance.ts` — headless rider and the clearability report in [BALANCE.md](BALANCE.md).
 - `src/render/` — Canvas 2D pseudo-3D renderer and effects. Reads sim state, never writes it.
 - `src/input.ts` — swipes, taps and keys turned into queued commands.
-- `src/platform/` — analytics, fail-soft saves, procedural audio, and the CrazyGames adapter.
+- `src/platform/` — analytics, fail-soft saves, procedural audio, and the CrazyGames adapter (ads, data, and the optional account chip).

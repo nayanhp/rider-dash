@@ -1,9 +1,10 @@
-// CrazyGames HTML5 SDK v3 adapter. Game code uses bootPortal() and the AdService
+// CrazyGames HTML5 SDK v3 adapter. Game code uses bootPortal() and the services
 // it returns; it never touches window.CrazyGames. When the SDK is missing, disabled,
 // or fails to init, every call is a no-op and saves stay on local storage.
 import { stubAds, type AdKind, type AdResult, type AdService } from './ads';
 import { setAdMuted, setSdkMuted } from './audio';
 import { PROGRESS_KEYS, storageKey, useStore, type KeyValueStore } from './storage';
+import { createUserService, unavailableUser, type UserModule, type UserService } from './user';
 
 export interface Portal {
   /** 'local' and 'crazygames' have a live SDK. 'offline' is the dev/fallback path. */
@@ -13,6 +14,8 @@ export interface Portal {
   gameplayStop(): void;
   happytime(): void;
   ads: AdService;
+  /** Account chip and sign-in. Unavailable off CrazyGames and on embeds. */
+  user: UserService;
 }
 
 interface GameSettings {
@@ -54,6 +57,7 @@ export interface CrazySDK {
     hasAdblock?: () => Promise<boolean>;
   };
   data?: DataModule;
+  user?: UserModule;
 }
 
 declare global {
@@ -74,6 +78,7 @@ function offlinePortal(): Portal {
     gameplayStop() {},
     happytime() {},
     ads: stubAds(),
+    user: unavailableUser(),
   };
 }
 
@@ -188,6 +193,15 @@ export async function connectPortal(sdk: CrazySDK | null): Promise<Portal> {
 
   if (sdk.data && migrateProgress(sdk.data, readLocal) === 'ok') useStore(dataStore(sdk.data));
 
+  // Accounts are optional. A failure here must not take ads or saves down with it.
+  // The data module already ties those saves to the CrazyGames account; we do not merge.
+  let user = unavailableUser();
+  try {
+    user = await createUserService(sdk.user);
+  } catch {
+    user = unavailableUser();
+  }
+
   let rewarded = true;
   try {
     if (await sdk.ad.hasAdblock?.()) rewarded = false;
@@ -232,6 +246,7 @@ export async function connectPortal(sdk: CrazySDK | null): Promise<Portal> {
     gameplayStop: () => emit('gameplayStop', () => sdk.game.gameplayStop()),
     happytime: () => emit('happytime', () => sdk.game.happytime()),
     ads,
+    user,
   };
 }
 

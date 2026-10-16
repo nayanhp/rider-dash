@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.17.0 — 2026-10-16 · CrazyGames account
+
+- The menu shows **Sign in with CrazyGames** when the player is a guest, and a picture plus username when they are signed in. The click calls `user.showAuthPrompt()` through `src/platform/user.ts`. Game UI still never touches `window.CrazyGames`. Play stays the main action. A first launch with no stars still rides Koramangala immediately; the pill or chip is on the menu when they come back.
+- The control is hidden when `isUserAccountAvailable` is false (embeds, or localhost with `?user_account_available=false`). Boot calls `addAuthListener` and `getUser()` when accounts exist. Logout reloads the page on CrazyGames’ side.
+- Progress (stars, wallet, shop, avatar, and the rest) keeps going through the data module. A reload reads that save back, so a returning signed-in player is not treated as a first launch. A login re-reads the module too, so the account save replaces the guest cache instead of being overwritten. No merge, no `getUserToken`. `npm test` is 155 tests.
+
 ## 0.16.0 — 2026-10-16 · Harder curve, traffic cop
 
 - Parcel goals ramp much faster. The first two Bengaluru areas stay at 2 parcels and the opening speed. By area 5 the goal has stepped up, and the last area asks for 20 (double the old cap of 10).
