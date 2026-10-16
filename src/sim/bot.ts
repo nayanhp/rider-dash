@@ -8,7 +8,7 @@ import { carryCap, createRun, speed, step, type Command, type Obj, type RunState
 /** Ticks between a decision and the command reaching the sim. */
 export const REACTION_TICKS = 8;
 
-const REWARD = new Set(['coin', 'parcel', 'drop']);
+const REWARD = new Set(['coin', 'parcel', 'drop', 'power']);
 
 export interface Attempt {
   status: 'won' | 'lost' | 'timeout';
@@ -73,6 +73,10 @@ function decide(s: RunState, queue: readonly (Command | null)[]): Command | null
   const pickOpen = (objs: Obj[]) => objs.find((o) => !blocked(o.lane)) ?? objs[0];
   if (s.carry > 0 && drops.length) desired = pickOpen(drops).lane;
   else if (s.carry < carryCap(s) && parcels.length) desired = pickOpen(parcels).lane;
+  else {
+    const powers = ahead.filter((o) => o.kind === 'power' && !blocked(o.lane)).sort((a, b) => a.z - b.z);
+    if (powers.length) desired = powers[0].lane;
+  }
   if (blocked(desired)) {
     const open = [0, 1, 2].filter((lane) => !blocked(lane));
     desired = open.length
@@ -96,6 +100,9 @@ function decide(s: RunState, queue: readonly (Command | null)[]): Command | null
     const slack = spd * (10 / t.tickRate);
     if (dz > ideal - slack && dz < ideal + slack) return 'jump';
   }
+
+  // Crossing two lanes passes through the middle one. Wait if something blocks it.
+  if (Math.abs(desired - committed) === 2 && blocked(1) && !blocked(committed)) desired = committed;
 
   // Where the brake is unlocked, hold it when every lane ahead is blocked; let go once clear.
   if (s.cfg.brake) {

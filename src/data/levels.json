@@ -60,7 +60,8 @@
     "nightEvery": 7,
     "rainTip": "Rain slows your lane changes. Move early.",
     "nightTip": "Night shift. Watch the road closely.",
-    "finaleTip": "Last stop in the city. Clear it to ride on to the next one."
+    "finaleTip": "Last stop in the city. Clear it to ride on to the next one.",
+    "from": 8
   },
   "endless": {
     "id": "endless",
@@ -87,7 +88,16 @@
     "threatChance": 0.3,
     "maxMovers": 2,
     "dogChance": 0.06,
-    "brake": true
+    "brake": true,
+    "powers": [
+      "magnet",
+      "net",
+      "helmet",
+      "nitro",
+      "double",
+      "heart"
+    ],
+    "powerChance": 0.07
   },
   "tips": [
     "Back-to-back deliveries without a crash multiply your coins, up to ×3.",
@@ -127,7 +137,7 @@
     ],
     "chance": [
       0.12,
-      0.26
+      0.32
     ],
     "teachChance": 0.3,
     "breatherScale": 0.5,
@@ -138,5 +148,42 @@
   "brake": {
     "at": 26,
     "tip": "New: brake. Swipe down and hold (or hold ⬇) to slow down, never stop. Let go to speed back up. Braking resets your combo."
+  },
+  "powers": {
+    "comment": "Power-ups unlock by global area index. The unlock area always shows the new one early; after that, chance is the share of reward slots that hold a power-up.",
+    "schedule": [
+      {
+        "at": 4,
+        "kind": "magnet",
+        "tip": "New: magnet. Grab it and coins fly to you from every lane for a few seconds."
+      },
+      {
+        "at": 6,
+        "kind": "net",
+        "tip": "New: parcel net. Scoops up parcels from the lanes beside you, and from further ahead."
+      },
+      {
+        "at": 9,
+        "kind": "helmet",
+        "tip": "New: safety helmet. It takes one hit for you, then shatters."
+      },
+      {
+        "at": 13,
+        "kind": "nitro",
+        "tip": "New: nitro. A burst of speed: nothing can hit you, and potholes don't slow you. Great for losing a dog."
+      },
+      {
+        "at": 17,
+        "kind": "double",
+        "tip": "New: 2× coins. Every coin and delivery pays double for ten seconds."
+      },
+      {
+        "at": 19,
+        "kind": "heart",
+        "tip": "New: extra heart. It only shows up when you've lost one."
+      }
+    ],
+    "chance": 0.05,
+    "teachChance": 0.12
   }
 }

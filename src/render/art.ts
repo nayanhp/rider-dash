@@ -14,6 +14,12 @@ import skylineUrl from '../sprites/skyline-strip.svg';
 import walkerUrl from '../sprites/walker.svg';
 import dogUrl from '../sprites/dog.svg';
 import scooterUrl from '../sprites/avatars/rider-front.svg';
+import magnetUrl from '../sprites/power-magnet.svg';
+import netUrl from '../sprites/power-net.svg';
+import helmetUrl from '../sprites/power-helmet.svg';
+import nitroUrl from '../sprites/power-nitro.svg';
+import doubleUrl from '../sprites/power-double.svg';
+import heartUrl from '../sprites/hud-heart-full.svg';
 
 export interface SpriteSpec {
   id: string;
@@ -48,6 +54,13 @@ export const SPRITES = {
   dog: spec('dog', dogUrl, 0, 0, 110, 72, 55, 67, 0.62, 384),
   /** Wrong-way scooter: the rider art seen from the front. */
   scooter: spec('scooter', scooterUrl, 0, 0, 128, 160, 64, 153, 0.62, 384),
+  // Power-up icons, drawn inside a bubble on the road. Anchor is the centre.
+  magnet: spec('magnet', magnetUrl, 0, 0, 64, 64, 32, 32, 0.46, 192),
+  net: spec('net', netUrl, 0, 0, 64, 64, 32, 32, 0.46, 192),
+  helmet: spec('helmet', helmetUrl, 0, 0, 64, 64, 32, 32, 0.46, 192),
+  nitro: spec('nitro', nitroUrl, 0, 0, 64, 64, 32, 32, 0.46, 192),
+  double: spec('double', doubleUrl, 0, 0, 64, 64, 32, 32, 0.46, 192),
+  heart: spec('heart', heartUrl, 0, 0, 32, 32, 16, 16, 0.46, 192),
 } as const satisfies Record<string, SpriteSpec>;
 
 export type SpriteId = keyof typeof SPRITES;
@@ -115,3 +128,6 @@ export function drawSprite(ctx: CanvasRenderingContext2D, id: SpriteId, x: numbe
   const sc = drawW / s.vbW;
   ctx.drawImage(s.canvas, x - s.ox * sc, y - s.oy * sc, s.vbW * sc, s.vbH * sc);
 }
+
+/** Icon URLs for the HUD's power-up chips. */
+export const POWER_ICONS = { magnet: magnetUrl, net: netUrl, helmet: helmetUrl, nitro: nitroUrl, double: doubleUrl, heart: heartUrl } as const;

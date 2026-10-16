@@ -9,7 +9,11 @@ export const MOVERS = ['walker', 'cowWalk', 'autoSwerve', 'scooter'] as const;
 export type MoverKind = (typeof MOVERS)[number];
 /** Everything that can be scheduled as a threat: the movers plus the chasing dog. */
 export type ThreatKind = MoverKind | 'dog';
-export type ObjKind = ObstacleKind | MoverKind | 'parcel' | 'coin' | 'drop';
+/** Pickups on the road. Timed ones run down; the helmet waits for a hit; a heart is instant. */
+export const POWERS = ['magnet', 'net', 'helmet', 'nitro', 'double', 'heart'] as const;
+export type PowerKind = (typeof POWERS)[number];
+export type TimedPower = 'magnet' | 'net' | 'nitro' | 'double';
+export type ObjKind = ObstacleKind | MoverKind | 'parcel' | 'coin' | 'drop' | 'power';
 /** What hit the rider: any obstacle, a mover, or the dog catching up. */
 export type HitKind = ObstacleKind | MoverKind | 'dog';
 
@@ -42,6 +46,10 @@ export interface LevelConfig {
   dogChance?: number;
   /** The brake works in this level. It unlocks after the first city. */
   brake?: boolean;
+  /** Power-ups that can appear, the share of reward slots that hold one, and the one this area introduces. */
+  powers?: PowerKind[];
+  powerChance?: number;
+  teachPower?: PowerKind;
   /** City id and display name, for city levels. */
   cityId?: string;
   city?: string;
@@ -72,6 +80,7 @@ const lerp = ([lo, hi]: number[], t: number) => lo + (hi - lo) * t;
 export function buildCities(cities: CityData[], data: LevelsData = levelsData): City[] {
   const { curve, intro, weather, tips, threats } = data;
   const schedule = threats.schedule as { at: number; kind: ThreatKind; tip: string }[];
+  const powerSchedule = data.powers.schedule as { at: number; kind: PowerKind; tip: string }[];
   const allKinds = intro[intro.length - 1].kinds as ObstacleKind[];
   let global = 0;
   return cities.map((c, ci) => {
@@ -81,8 +90,10 @@ export function buildCities(cities: CityData[], data: LevelsData = levelsData): 
       const d = Math.min(1, ci * curve.cityStep + (n > 1 ? ai / (n - 1) : 0) * curve.areaSpan);
       const finale = ai === n - 1;
       const inIntro = g < intro.length;
-      const rain = !inIntro && (ai + 1) % (c.rainEvery ?? weather.rainEvery) === 0;
-      const night = !inIntro && (finale || (ai + 1) % weather.nightEvery === 0);
+      // Weather waits until new players have settled in (the first eight Bengaluru areas).
+      const calm = inIntro || g < weather.from;
+      const rain = !calm && (ai + 1) % (c.rainEvery ?? weather.rainEvery) === 0;
+      const night = !calm && (finale || (ai + 1) % weather.nightEvery === 0);
       const v0 = Math.round(lerp(curve.v0, d));
       // Threats unlocked so far. The unlock area teaches its threat alone; the next is a breather.
       const teach = schedule.find((u) => u.at === g);
@@ -95,8 +106,11 @@ export function buildCities(cities: CityData[], data: LevelsData = levelsData): 
       const threatChance = teach ? (movers.length ? threats.teachChance : 0) : movers.length ? baseChance : 0;
       const dogChance = !hasDog ? 0 : teach ? threats.teachDogChance : threats.dogChance * (breather ? threats.breatherScale : 1);
       const brakeIntro = g === data.brake.at;
+      const powerTeach = powerSchedule.find((u) => u.at === g);
+      const powers = powerSchedule.filter((u) => u.at <= g).map((u) => u.kind);
       const tip = inIntro ? intro[g].tip
         : teach ? teach.tip
+        : powerTeach ? powerTeach.tip
         : brakeIntro ? data.brake.tip
         : finale ? weather.finaleTip
         : ai === 0 ? c.tagline
@@ -122,6 +136,11 @@ export function buildCities(cities: CityData[], data: LevelsData = levelsData): 
           dogChance,
         }),
         ...(g >= data.brake.at && { brake: true }),
+        ...(powers.length && {
+          powers,
+          powerChance: powerTeach ? data.powers.teachChance : data.powers.chance,
+          ...(powerTeach && { teachPower: powerTeach.kind }),
+        }),
         cityId: c.id,
         city: c.name,
       };

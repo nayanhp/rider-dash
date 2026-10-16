@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ENDLESS, LEVELS, TUNING } from './config';
 import { Rng } from './rng';
-import { addMover, addObj, airborne, startDog, beatBest, carryCap, createRun, targetSpeed, replay, reviveStillOpen, score, speed, spawnRow, step, type Command, type InputLog } from './run';
+import { addMover, addObj, addPower, airborne, hasPower, startDog, beatBest, carryCap, createRun, targetSpeed, replay, reviveStillOpen, score, speed, spawnRow, step, type Command, type InputLog } from './run';
 
 const L1 = LEVELS[0];
 const ALL_KINDS = LEVELS[3];
@@ -397,5 +397,84 @@ describe('dog chase', () => {
     addObj(s, 'drop', 1, 100);
     rideTo(s, 150);
     expect(s.dog).toBeNull();
+  });
+});
+
+describe('power-ups', () => {
+  const powered = () => createRun({ ...LEVELS.at(-1)!, goal: 50 }, 1, { autoSpawn: false });
+
+  it('magnet pulls coins from every lane', () => {
+    const s = powered();
+    addPower(s, 'magnet', 1, 100);
+    for (const lane of [0, 1, 2]) addObj(s, 'coin', lane, 400);
+    rideTo(s, 420);
+    expect(s.coins).toBe(3);
+  });
+
+  it('the net scoops parcels from the next lane', () => {
+    const s = powered();
+    addPower(s, 'net', 1, 100);
+    addObj(s, 'parcel', 0, 400);
+    addObj(s, 'parcel', 2, 500);
+    rideTo(s, 520);
+    expect(s.carry).toBe(2);
+  });
+
+  it('the helmet takes one hit, then the next one counts', () => {
+    const s = powered();
+    addPower(s, 'helmet', 1, 100);
+    addObj(s, 'car', 1, 300);
+    rideTo(s, 340);
+    expect(s.hearts).toBe(TUNING.hearts);
+    expect(s.shield).toBe(false);
+    addObj(s, 'car', 1, 900);
+    rideTo(s, 940);
+    expect(s.hearts).toBe(TUNING.hearts - 1);
+  });
+
+  it('nitro speeds you up, rides through traffic and skims potholes, then runs out', () => {
+    const s = powered();
+    const cruise = targetSpeed(s);
+    addPower(s, 'nitro', 1, 60);
+    addObj(s, 'car', 1, 400);
+    addObj(s, 'hole', 1, 700);
+    rideTo(s, 720);
+    expect(targetSpeed(s)).toBeCloseTo(cruise * TUNING.nitroBoost);
+    expect(s.hearts).toBe(TUNING.hearts);
+    expect(speed(s)).toBeGreaterThan(cruise);
+    for (let i = 0; i < TUNING.powerTicks.nitro; i++) step(s);
+    expect(hasPower(s, 'nitro')).toBe(false);
+  });
+
+  it('2× coins doubles coins and delivery pay', () => {
+    const s = powered();
+    s.carry = 1;
+    addPower(s, 'double', 1, 60);
+    addObj(s, 'coin', 1, 200);
+    addObj(s, 'drop', 1, 400);
+    rideTo(s, 450);
+    expect(s.coins).toBe(2 + 20);
+  });
+
+  it('an extra heart only appears, and only helps, after you lose one', () => {
+    const s = powered();
+    addPower(s, 'heart', 1, 100);
+    rideTo(s, 150);
+    expect(s.hearts).toBe(TUNING.hearts); // capped
+    const level = { ...LEVELS.at(-1)!, powers: ['heart' as const], powerChance: 1 };
+    const full = createRun(level, 1, { autoSpawn: false });
+    for (let r = 0; r < 20; r++) spawnRow(full, 1000);
+    expect(full.objs.some((o) => o.kind === 'power')).toBe(false);
+  });
+
+  it('the area that introduces a power-up always shows it early', () => {
+    const at = LEVELS.findIndex((l) => l.teachPower === 'magnet');
+    const seen = createRun(LEVELS[at], 11);
+    let found = false;
+    for (let i = 0; i < 60 * 20 && !found; i++) {
+      step(seen);
+      found = seen.objs.some((o) => o.power === 'magnet');
+    }
+    expect(found).toBe(true);
   });
 });

@@ -1,6 +1,6 @@
 // Deterministic run simulation. A run is seed + level config + input log: replaying the
 // same three always gives the same result. Fixed tick, no rendering, no DOM, no Math.random.
-import { TUNING, isMover, type HitKind, type LevelConfig, type MoverKind, type ObjKind, type Tuning } from './config';
+import { TUNING, isMover, type HitKind, type LevelConfig, type MoverKind, type ObjKind, type PowerKind, type TimedPower, type Tuning } from './config';
 import { Rng } from './rng';
 
 export const LANES = 3;
@@ -21,6 +21,8 @@ export interface Obj {
   vz: number;
   /** Planned lane change, for movers that swerve, drift or cross. */
   move?: LaneMove;
+  /** Which power-up, for kind 'power'. */
+  power?: PowerKind;
   done: boolean;
 }
 
@@ -51,6 +53,9 @@ export type SimEvent =
   | { type: 'bump'; kind: 'hole' | 'bump' }
   | { type: 'brake' }
   | { type: 'dog'; phase: 'start' | 'gone' }
+  | { type: 'power'; kind: PowerKind }
+  | { type: 'powerEnd'; kind: TimedPower }
+  | { type: 'shield' }
   | { type: 'jump' }
   | { type: 'won' }
   | { type: 'lost' }
@@ -74,6 +79,12 @@ export interface RunState {
   /** True while the player holds the brake. */
   braking: boolean;
   dog: DogChase | null;
+  /** Ticks left on each timed power-up. */
+  powers: Partial<Record<TimedPower, number>>;
+  /** A safety helmet is on: the next crash is absorbed. */
+  shield: boolean;
+  /** The area's new power-up has been placed once. */
+  powerTaught: boolean;
   invulnT: number;
   hearts: number;
   carry: number;
@@ -113,6 +124,9 @@ export function createRun(cfg: LevelConfig, seed: number, opts: RunOptions = {})
     jumpT: 0,
     braking: false,
     dog: null,
+    powers: {},
+    shield: false,
+    powerTaught: false,
     invulnT: 0,
     hearts: tuning.hearts,
     carry: 0,
@@ -144,10 +158,15 @@ export function speed(s: RunState): number {
  */
 export function targetSpeed(s: RunState): number {
   const { v0, v1, ramp, goal } = s.cfg;
-  if (goal !== undefined) return v0 + (v1 - v0) * Math.min(1, s.delivered / goal);
+  const boost = s.powers.nitro ? s.tuning.nitroBoost : 1;
+  if (goal !== undefined) return (v0 + (v1 - v0) * Math.min(1, s.delivered / goal)) * boost;
   const timed = v0 + (v1 - v0) * Math.min(1, seconds(s) / ramp);
-  return Math.min(v1, timed + s.delivered * s.tuning.endlessSpeedPerDrop);
+  return Math.min(v1, timed + s.delivered * s.tuning.endlessSpeedPerDrop) * boost;
 }
+
+export const hasPower = (s: RunState, p: TimedPower) => (s.powers[p] ?? 0) > 0;
+/** Coins pay double while the 2× power-up runs. */
+const coinMult = (s: RunState) => (hasPower(s, 'double') ? 2 : 1);
 
 /** Parcels the rider can hold right now: never more than are still needed for the goal. */
 export function carryCap(s: RunState): number {
@@ -282,15 +301,63 @@ export function spawnRow(s: RunState, z: number) {
   s.rngState = rng.state;
 }
 
+/** Power-ups that may be placed right now. A heart only shows up after you've lost one. */
+function placeablePowers(s: RunState): PowerKind[] {
+  return (s.cfg.powers ?? []).filter((p) => p !== 'heart' || s.hearts < s.tuning.hearts);
+}
+
 function addReward(s: RunState, rng: Rng, lane: number, z: number) {
   const t = s.tuning;
+  const teach = s.cfg.teachPower;
+  if (teach && !s.powerTaught && s.rows >= t.powerTeachRow && (teach !== 'heart' || s.hearts < t.hearts)) {
+    s.powerTaught = true;
+    addPower(s, teach, lane, z + t.parcelOffset);
+    return;
+  }
+  const powers = placeablePowers(s);
+  if (powers.length && rng.next() < (s.cfg.powerChance ?? 0)) {
+    addPower(s, rng.pick(powers), lane, z + t.parcelOffset);
+    return;
+  }
   if (rng.next() < t.parcelChance && s.carry < carryCap(s)) addObj(s, 'parcel', lane, z + t.parcelOffset);
   else for (let c = 0; c < t.coinsPerRow; c++) addObj(s, 'coin', lane, z + t.coinOffset + c * t.coinSpacing);
+}
+
+export function addPower(s: RunState, power: PowerKind, lane: number, z: number): Obj {
+  const o = addObj(s, 'power', lane, z);
+  o.power = power;
+  return o;
+}
+
+function grantPower(s: RunState, p: PowerKind) {
+  const t = s.tuning;
+  if (p === 'helmet') s.shield = true;
+  else if (p === 'heart') s.hearts = Math.min(t.hearts, s.hearts + 1);
+  else s.powers[p] = t.powerTicks[p];
+  s.events.push({ type: 'power', kind: p });
+}
+
+function tickPowers(s: RunState) {
+  for (const p of Object.keys(s.powers) as TimedPower[]) {
+    const left = (s.powers[p] ?? 0) - 1;
+    if (left > 0) s.powers[p] = left;
+    else {
+      delete s.powers[p];
+      s.events.push({ type: 'powerEnd', kind: p });
+    }
+  }
 }
 
 /** A crash: lose a heart and a carried parcel, slow down, and blink for a moment. */
 function crash(s: RunState, kind: HitKind) {
   const t = s.tuning;
+  if (s.shield) {
+    // The helmet takes it: no heart, no parcel, no slowdown.
+    s.shield = false;
+    s.invulnT = t.invulnTicks;
+    s.events.push({ type: 'shield' });
+    return;
+  }
   s.hearts--;
   s.invulnT = t.invulnTicks;
   s.combo = 0;
@@ -305,7 +372,7 @@ function collide(s: RunState, o: Obj) {
   const t = s.tuning;
   if (o.kind === 'coin') {
     o.done = true;
-    s.coins++;
+    s.coins += coinMult(s);
     s.events.push({ type: 'coin' });
   } else if (o.kind === 'parcel') {
     // A full box rides past the parcel and leaves it on the road.
@@ -318,7 +385,7 @@ function collide(s: RunState, o: Obj) {
     if (s.carry === 0) return;
     o.done = true;
     s.combo++;
-    const coins = t.coinsPerDelivery * Math.min(t.comboCap, s.combo);
+    const coins = t.coinsPerDelivery * Math.min(t.comboCap, s.combo) * coinMult(s);
     s.carry--;
     s.delivered++;
     s.coins += coins;
@@ -329,18 +396,31 @@ function collide(s: RunState, o: Obj) {
       s.events.push({ type: 'dog', phase: 'gone' });
     }
     if (s.cfg.goal !== undefined && s.delivered >= s.cfg.goal) s.status = 'won';
+  } else if (o.kind === 'power') {
+    o.done = true;
+    if (o.power) grantPower(s, o.power);
   } else if (o.kind === 'hole' || o.kind === 'bump') {
-    // Jump it, or ride over it and lose most of your speed. No heart lost.
-    if (airborne(s)) return;
+    // Jump it, or ride over it and lose most of your speed. No heart lost. Nitro skims over.
+    if (airborne(s) || hasPower(s, 'nitro')) return;
     o.done = true;
     s.v = Math.min(s.v, targetSpeed(s) * t.bumpSlow);
     s.combo = 0;
     s.events.push({ type: 'bump', kind: o.kind });
   } else {
-    if (s.invulnT > 0) return;
+    if (s.invulnT > 0 || hasPower(s, 'nitro')) return;
     o.done = true;
     crash(s, o.kind);
   }
+}
+
+/** Whether the rider touches this object now. Magnet and net reach further than your own lane. */
+function inReach(s: RunState, o: Obj, myLane: number): boolean {
+  const t = s.tuning;
+  const rel = o.z - s.dist;
+  if (rel < -t.hitWindow) return false;
+  if (o.kind === 'coin' && hasPower(s, 'magnet')) return rel <= t.magnetReach;
+  if (o.kind === 'parcel' && hasPower(s, 'net')) return Math.abs(o.lane - myLane) <= 1 && rel <= t.netReach;
+  return o.lane === myLane && rel <= t.hitWindow;
 }
 
 function chaseDog(s: RunState, dt: number) {
@@ -351,7 +431,7 @@ function chaseDog(s: RunState, dt: number) {
   d.ticksLeft--;
   if (d.gap <= 0) {
     s.dog = null;
-    if (s.invulnT > 0) s.events.push({ type: 'dog', phase: 'gone' });
+    if (s.invulnT > 0 || hasPower(s, 'nitro')) s.events.push({ type: 'dog', phase: 'gone' });
     else crash(s, 'dog');
   } else if (d.ticksLeft <= 0) {
     s.dog = null;
@@ -367,6 +447,7 @@ function tryRevive(s: RunState, payCoins: boolean) {
   s.revived = true;
   s.status = 'running';
   s.dog = null;
+  s.powers = {};
   s.hearts = s.tuning.reviveHearts;
   s.invulnT = s.tuning.invulnTicks;
   for (const o of s.objs) {
@@ -407,16 +488,17 @@ export function step(s: RunState, cmds: readonly Command[] = []) {
 
   moveObjects(s, dt);
   chaseDog(s, dt);
+  tickPowers(s);
 
   const myLane = Math.round(s.lx);
   for (const o of s.objs) {
     if (s.status !== 'running') break;
-    if (o.done || o.lane !== myLane || Math.abs(o.z - s.dist) > t.hitWindow) continue;
+    if (o.done || !inReach(s, o, myLane)) continue;
     collide(s, o);
     if (s.status !== 'running') break;
   }
   s.objs = s.objs.filter(
-    (o) => o.z - s.dist > -t.despawnBehind && !(o.done && (o.kind === 'coin' || o.kind === 'parcel')),
+    (o) => o.z - s.dist > -t.despawnBehind && !(o.done && (o.kind === 'coin' || o.kind === 'parcel' || o.kind === 'power')),
   );
   // collide() may have ended the run; TS narrowed status to 'running' above.
   const end = s.status as RunStatus;

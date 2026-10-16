@@ -10,6 +10,7 @@ import { bootPortal, type Portal } from './platform/crazygames';
 import { load, save } from './platform/storage';
 import { loadSprites } from './render/art';
 import { Renderer } from './render/renderer';
+import { POWER_ICONS } from './render/art';
 import { frontPreviewUrl, PICKER_DRAW_PX, prepareAvatar } from './render/riderArt';
 import playUrl from './sprites/ui-play.svg';
 import retryUrl from './sprites/ui-retry.svg';
@@ -21,7 +22,7 @@ import pauseUrl from './sprites/ui-pause.svg';
 import rainUrl from './sprites/badge-rain.svg';
 import nightUrl from './sprites/badge-night.svg';
 import unlockUrl from './sprites/badge-city-unlock.svg';
-import { CITIES, ENDLESS, LEVELS, type City, type LevelConfig } from './sim/config';
+import { CITIES, ENDLESS, LEVELS, type City, type LevelConfig, type PowerKind, type TimedPower } from './sim/config';
 import { RunPayout, reloadWallet, walletCoins } from './wallet';
 import { cityCleared, cityOf, cityStars, cityUnlocked, currentLevel, isUnlocked, nextLevel, recordStars, reloadProgress, starsFor } from './progress';
 import { beatBest, carryCap, createRun, isEndless, meters, reviveStillOpen, score, seconds, step, type InputLog, type RunState, type SimEvent } from './sim/run';
@@ -81,6 +82,7 @@ const hud = {
   mid: document.querySelector<HTMLSpanElement>('#hud-mid')!,
   right: document.querySelector<HTMLSpanElement>('#hud-right')!,
   slots: document.querySelector<HTMLDivElement>('#hud-slots')!,
+  powers: document.querySelector<HTMLDivElement>('#hud-powers')!,
 };
 
 const renderer = new Renderer(canvas);
@@ -738,7 +740,32 @@ function showBrief(l: LevelConfig) {
 }
 
 let lastHud = '';
+const POWER_LABEL: Record<PowerKind, string> = {
+  magnet: 'Magnet', net: 'Parcel net', helmet: 'Helmet', nitro: 'Nitro', double: '2× coins', heart: 'Extra heart',
+};
+let lastPowerIds = '';
+/** Active power-ups as chips with a draining bar. The helmet has no timer: it waits for a hit. */
+function updatePowers() {
+  const active: Array<[PowerKind, number]> = [];
+  for (const [k, left] of Object.entries(run.powers) as Array<[TimedPower, number]>) {
+    active.push([k, left / run.tuning.powerTicks[k]]);
+  }
+  if (run.shield) active.push(['helmet', 1]);
+  const ids = active.map(([k]) => k).join(',');
+  if (ids !== lastPowerIds) {
+    lastPowerIds = ids;
+    hud.powers.innerHTML = active
+      .map(([k]) => `<span class="power" data-power="${k}" aria-label="${POWER_LABEL[k]}"><img src="${POWER_ICONS[k]}" alt=""><i><b></b></i></span>`)
+      .join('');
+  }
+  for (const [k, frac] of active) {
+    const bar = hud.powers.querySelector<HTMLElement>(`[data-power="${k}"] b`);
+    if (bar) bar.style.transform = `scaleX(${Math.max(0, Math.min(1, frac))})`;
+  }
+}
+
 function updateHud() {
+  updatePowers();
   const endless = isEndless(run);
   const leftText = endless ? `${meters(run)} m` : `${run.delivered}/${run.cfg.goal}`;
   const hearts = Math.max(0, run.hearts);

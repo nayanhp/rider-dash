@@ -68,5 +68,15 @@
       "warnTicks": 0,
       "laneSpeed": 0
     }
-  }
+  },
+  "powerTicks": {
+    "magnet": 480,
+    "net": 480,
+    "nitro": 240,
+    "double": 600
+  },
+  "magnetReach": 320,
+  "netReach": 240,
+  "nitroBoost": 1.45,
+  "powerTeachRow": 3
 }

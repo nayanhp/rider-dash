@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.9.0 — 2026-10-16 · Power-ups (Phase 2)
+
+- Six road power-ups, unlocked one per Bengaluru area with a "New:" tip and shown early in
+  that area: magnet (BTM Layout), parcel net (Basavanagudi), safety helmet (Ulsoor), nitro
+  (Vijayanagar), 2× coins (Whitefield), extra heart (Electronic City, only after losing one).
+- Effects: magnet pulls coins from every lane; net scoops parcels from the next lane and
+  further ahead; helmet absorbs one crash (including the dog); nitro ×1.45 speed, no crashes,
+  skims potholes; 2× doubles coin and delivery pay. Timers in `tuning.json` → `powerTicks`.
+- HUD chips with draining bars; glowing bubbles on the road; nitro flare.
+- Rain and night now start from Bengaluru area 9, so new players get eight calm areas.
+- Bot grabs power-ups only in clear lanes and no longer cuts through a blocked middle lane.
+  BALANCE.md: Bengaluru 98%, declining to Ahmedabad 83%. 92 tests.
+
 ## 0.8.0 — 2026-10-16 · Threats and the brake (Phase 1)
 
 - Moving threats, unlocked one per teaching area in Bengaluru, each with a "New:" tip card:

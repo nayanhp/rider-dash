@@ -2,6 +2,14 @@
 // Visual-only randomness (particles, rain) lives here and may use Math.random.
 import type { RunState, SimEvent } from '../sim/run';
 import { drawSprite, SPRITES, type SpriteId } from './art';
+import type { PowerKind } from '../sim/config';
+
+const POWER_RING: Record<PowerKind, string> = {
+  magnet: '#FF5A4E', net: '#2F8CFF', helmet: '#D99A00', nitro: '#2F8CFF', double: '#D99A00', heart: '#FF5A4E',
+};
+const POWER_NAMES: Record<PowerKind, string> = {
+  magnet: 'Magnet!', net: 'Parcel net!', helmet: 'Helmet on!', nitro: 'Nitro!', double: '2× coins!', heart: '+1 heart!',
+};
 import { drawAvatarPose, RIDER_DRAW, type RiderPose } from './riderArt';
 
 const FONT = '"Lilita One","Baloo 2",system-ui,sans-serif';
@@ -103,6 +111,12 @@ export class Renderer {
       } else if (e.type === 'dog') {
         if (e.phase === 'start') this.popup(x, py - 30, 'Dog chasing! Keep your speed up', '#C23A30');
         else this.popup(x, py - 30, 'Lost the dog!', '#3A9A1E');
+      } else if (e.type === 'power') {
+        this.popup(x, py - 10, POWER_NAMES[e.kind], POWER_RING[e.kind]);
+        this.burst(x, py + 10, POWER_RING[e.kind], 14);
+      } else if (e.type === 'shield') {
+        this.popup(x, py, 'Helmet saved you!', '#D99A00');
+        this.burst(x, g.yP - 60, '#FFCC2E', 18);
       } else if (e.type === 'revive') {
         this.popup(x, py, 'Revived!', '#3A9A1E');
         this.burst(x, py + 20, '#5DD039', 18);
@@ -282,6 +296,23 @@ export class Renderer {
         case 'bump':
           drawSprite(c, 'bump', p.x, p.y, SPRITES.bump.draw * lw);
           break;
+        case 'power': {
+          if (!o.power) break;
+          const r = lw * 0.32;
+          const cy = p.y - lw * 0.4 + (this.reduceMotion ? 0 : Math.sin(s.tick * 0.12 + o.id) * 4 * p.s);
+          const pulse = this.reduceMotion ? 1 : 1 + Math.sin(s.tick * 0.2) * 0.06;
+          c.save();
+          c.fillStyle = 'rgba(255,250,240,0.92)';
+          c.strokeStyle = POWER_RING[o.power];
+          c.lineWidth = Math.max(2, r * 0.16);
+          c.beginPath();
+          c.arc(p.x, cy, r * pulse, 0, Math.PI * 2);
+          c.fill();
+          c.stroke();
+          c.restore();
+          drawSprite(c, o.power, p.x, cy, SPRITES[o.power].draw * lw);
+          break;
+        }
         case 'walker':
           drawSprite(c, 'walker', p.x, p.y, SPRITES.walker.draw * lw);
           break;
@@ -301,6 +332,7 @@ export class Renderer {
 
     this.drawRider(s, g.yP);
     if (s.braking) this.drawBrakeLight(s, g.yP);
+    if (s.powers.nitro) this.drawNitro(s, g.yP);
     if (s.dog) this.drawDog(s, g.yP);
 
     if (night) {
@@ -315,6 +347,30 @@ export class Renderer {
       c.fillRect(-20, -20, W + 40, H + 40);
     }
     c.restore();
+  }
+
+  /** Blue exhaust flare and speed streaks while nitro runs. */
+  private drawNitro(s: RunState, yP: number) {
+    const c = this.ctx;
+    const x = this.proj(0, s.lx).x;
+    const lw = this.laneWidth(1);
+    const y = yP - lw * 0.05;
+    const g = c.createRadialGradient(x, y, 0, x, y, lw * 0.45);
+    g.addColorStop(0, 'rgba(79,179,246,0.8)');
+    g.addColorStop(1, 'rgba(79,179,246,0)');
+    c.fillStyle = g;
+    c.fillRect(x - lw * 0.45, y - lw * 0.45, lw * 0.9, lw * 0.9);
+    if (this.reduceMotion) return;
+    c.strokeStyle = 'rgba(255,255,255,0.55)';
+    c.lineWidth = 2;
+    c.beginPath();
+    for (let i = 0; i < 8; i++) {
+      const sx = ((i * 97 + s.tick * 23) % this.W);
+      const sy = this.H * 0.45 + ((i * 131 + s.tick * 41) % (this.H * 0.5));
+      c.moveTo(sx, sy);
+      c.lineTo(sx, sy + 40);
+    }
+    c.stroke();
   }
 
   /** Red glow at the tail light while the brake is held. */

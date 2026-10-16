@@ -91,6 +91,17 @@ html, body {
 #hud-mid { justify-self: center; }
 #hud-slots { display: flex; gap: 4px; min-height: 22px; }
 #hud-slots .slot { width: 22px; height: 22px; display: block; }
+#hud-powers { display: flex; gap: 6px; }
+#hud-powers:empty { display: none; }
+#hud-powers .power {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  background: rgba(255, 250, 240, 0.94); border-radius: 12px; padding: 4px 5px 5px;
+  box-shadow: 0 3px 0 rgba(42, 47, 90, 0.18);
+  animation: pill-pop 220ms var(--ease-pop);
+}
+#hud-powers img { width: 24px; height: 24px; display: block; }
+#hud-powers i { display: block; width: 24px; height: 4px; border-radius: 2px; background: rgba(42, 47, 90, 0.18); overflow: hidden; }
+#hud-powers b { display: block; height: 100%; background: var(--green); transform-origin: left; }
 #hud-left, #hud-mid, #hud-right {
   display: inline-flex;
   align-items: center;
