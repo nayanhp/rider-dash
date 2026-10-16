@@ -652,6 +652,11 @@ function showMenu() {
       coins: () => showCoins(showMenu),
     },
   );
+  // If the logo can't load (offline, a dropped connection), show the name as a title, not a broken image.
+  const logo = overlay.querySelector<HTMLImageElement>('.logo');
+  const swapToTitle = () => logo?.replaceWith(Object.assign(document.createElement('h1'), { className: 'logo-text', textContent: 'Rider Dash' }));
+  if (logo?.complete && logo.naturalWidth === 0) swapToTitle();
+  else logo?.addEventListener('error', swapToTitle, { once: true });
 }
 
 const pips = (n: number, max: number) =>

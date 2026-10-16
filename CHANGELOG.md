@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.14.2 — 2026-10-16 · Logo fallback
+
+- If the menu logo can't load (offline, dropped connection), the menu shows "Rider Dash" as a
+  title instead of a broken-image icon.
+
 ## 0.14.1 — 2026-10-16 · No flashing at the start of a run
 
 - Fix: the background flashed black at the start of a run on phones. Each resize (the address
