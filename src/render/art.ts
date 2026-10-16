@@ -11,6 +11,14 @@ import dropUrl from '../sprites/drop-pad.svg';
 import treeUrl from '../sprites/tree.svg';
 import houseUrl from '../sprites/house.svg';
 import skylineUrl from '../sprites/skyline-strip.svg';
+import skyBengaluruUrl from '../sprites/skyline-bengaluru.svg';
+import skyMumbaiUrl from '../sprites/skyline-mumbai.svg';
+import skyDelhiUrl from '../sprites/skyline-delhi.svg';
+import skyHyderabadUrl from '../sprites/skyline-hyderabad.svg';
+import skyChennaiUrl from '../sprites/skyline-chennai.svg';
+import skyPuneUrl from '../sprites/skyline-pune.svg';
+import skyKolkataUrl from '../sprites/skyline-kolkata.svg';
+import skyAhmedabadUrl from '../sprites/skyline-ahmedabad.svg';
 import walkerUrl from '../sprites/walker.svg';
 import dogUrl from '../sprites/dog.svg';
 import scooterUrl from '../sprites/avatars/rider-front.svg';
@@ -50,6 +58,16 @@ export const SPRITES = {
   tree: spec('tree', treeUrl, 0, 0, 80, 110, 40, 106, 0.9, 512),
   house: spec('house', houseUrl, 0, 0, 80, 80, 40, 76, 0.7, 512),
   skyline: spec('skyline', skylineUrl, 0, 0, 400, 80, 0, 80, 0, 1200),
+  // City landmark skylines, keyed by city id. The landmark sits in the middle of the strip.
+  'skyline-bengaluru': spec('skyline-bengaluru', skyBengaluruUrl, 0, 0, 400, 80, 0, 80, 0, 1200),
+  'skyline-mumbai': spec('skyline-mumbai', skyMumbaiUrl, 0, 0, 400, 80, 0, 80, 0, 1200),
+  'skyline-delhi': spec('skyline-delhi', skyDelhiUrl, 0, 0, 400, 80, 0, 80, 0, 1200),
+  'skyline-hyderabad': spec('skyline-hyderabad', skyHyderabadUrl, 0, 0, 400, 80, 0, 80, 0, 1200),
+  'skyline-chennai': spec('skyline-chennai', skyChennaiUrl, 0, 0, 400, 80, 0, 80, 0, 1200),
+  'skyline-pune': spec('skyline-pune', skyPuneUrl, 0, 0, 400, 80, 0, 80, 0, 1200),
+  'skyline-kolkata': spec('skyline-kolkata', skyKolkataUrl, 0, 0, 400, 80, 0, 80, 0, 1200),
+  'skyline-ahmedabad': spec('skyline-ahmedabad', skyAhmedabadUrl, 0, 0, 400, 80, 0, 80, 0, 1200),
+
   walker: spec('walker', walkerUrl, 0, 0, 64, 128, 32, 123, 0.42, 256),
   dog: spec('dog', dogUrl, 0, 0, 110, 72, 55, 67, 0.62, 384),
   /** Wrong-way scooter: the rider art seen from the front. */

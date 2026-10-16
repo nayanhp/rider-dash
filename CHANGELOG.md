@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.11.0 — 2026-10-16 · City landmark skylines (Phase 4a)
+
+- Each city has its own skyline behind the road, centred on a landmark: Vidhana Soudha
+  (Bengaluru), Gateway of India (Mumbai), India Gate and Qutub Minar (Delhi), Charminar
+  (Hyderabad), a temple gopuram and the lighthouse (Chennai), Shaniwar Wada (Pune), Howrah
+  Bridge (Kolkata), and the minarets with kites (Ahmedabad). Endless uses Bengaluru.
+  Files: `src/sprites/skyline-<city>.svg`, same flat palette as before.
+
 ## 0.10.0 — 2026-10-16 · Shop (Phase 3)
 
 - Shop opens after BTM Layout (Bengaluru area 5); before that its button shows a lock and says

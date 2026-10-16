@@ -195,7 +195,12 @@ export class Renderer {
     const skyH = H * SKYLINE_H;
     const skyW = skyH * (SPRITES.skyline.vbW / SPRITES.skyline.vbH);
     if (skyW >= 1) {
-      for (let x = 0; x < W + skyW; x += skyW) drawSprite(c, 'skyline', x, g.y0, skyW);
+      // Each city shows its own landmark, centred behind the road. Endless uses Bengaluru.
+      const cityId = s.cfg.cityId ?? 'bengaluru';
+      const skyId = (`skyline-${cityId}` in SPRITES ? `skyline-${cityId}` : 'skyline') as SpriteId;
+      let x0 = W / 2 - skyW / 2;
+      while (x0 > 0) x0 -= skyW;
+      for (let x = x0; x < W; x += skyW) drawSprite(c, skyId, x, g.y0, skyW);
       if (night) {
         c.fillStyle = 'rgba(27,31,69,.55)';
         c.fillRect(-20, g.y0 - skyH, W + 40, skyH + 2);
