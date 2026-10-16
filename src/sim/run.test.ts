@@ -505,3 +505,82 @@ describe('shop mods', () => {
     expect(b.coins).toBe(a.coins);
   });
 });
+
+describe('city features', () => {
+  const late = () => createRun({ ...LEVELS.at(-1)!, goal: 50 }, 1, { autoSpawn: false });
+
+  it('a puddle slows you a little and makes steering sluggish; jumping it keeps you dry', () => {
+    const s = late();
+    addObj(s, 'puddle', 1, 150);
+    while (!s.events.some((e) => e.type === 'splash')) step(s);
+    expect(s.wetT).toBeGreaterThan(0);
+    expect(s.hearts).toBe(TUNING.hearts);
+    const dry = late();
+    addObj(dry, 'puddle', 1, 140);
+    rideTo(dry, 60, ['jump']);
+    rideTo(dry, 220);
+    expect(dry.wetT).toBe(0);
+  });
+
+  it('a monkey grabs a parcel unless you jump, and never costs a heart', () => {
+    const s = late();
+    s.carry = 2;
+    addObj(s, 'monkey', 1, 150);
+    rideTo(s, 220);
+    expect(s.carry).toBe(1);
+    expect(s.hearts).toBe(TUNING.hearts);
+    const j = late();
+    j.carry = 2;
+    addObj(j, 'monkey', 1, 140);
+    rideTo(j, 60, ['jump']);
+    rideTo(j, 220);
+    expect(j.carry).toBe(2);
+  });
+
+  it('hot food tips when delivered in time, not once it has gone cold', () => {
+    const s = late();
+    addObj(s, 'parcel', 1, 100).hot = true;
+    addObj(s, 'drop', 1, 600);
+    rideTo(s, 650);
+    expect(s.events.some((e) => e.type === 'tip') || s.coins > TUNING.coinsPerDelivery).toBe(true);
+    const cold = late();
+    addObj(cold, 'parcel', 1, 100).hot = true;
+    rideTo(cold, 150);
+    for (let i = 0; i < TUNING.hotTicks; i++) step(cold);
+    expect(cold.hotCarry).toBe(0);
+    addObj(cold, 'drop', 1, cold.dist + 200);
+    const before = cold.coins;
+    rideTo(cold, cold.dist + 260);
+    expect(cold.coins - before).toBe(TUNING.coinsPerDelivery);
+  });
+
+  it('a construction zone barricades the same two lanes for a few rows', () => {
+    const s = createRun({ ...LEVELS.at(-1)!, zoneChance: 1, threats: [], dogChance: 0 }, 3, { autoSpawn: false });
+    for (let r = 0; r < TUNING.zoneRows; r++) spawnRow(s, 1000 + r * 400);
+    const barriers = s.objs.filter((o) => o.kind === 'barrier');
+    expect(barriers).toHaveLength(TUNING.zoneRows * 2);
+    expect(new Set(barriers.map((o) => o.lane)).size).toBe(2);
+  });
+
+  it('a tram is long: its body still hits you after the front has passed', () => {
+    const s = late();
+    const tram = addMover(s, new Rng(1), 'tram', 1, 400);
+    tram.len = TUNING.tramLen;
+    s.invulnT = 0;
+    s.lane = 0;
+    s.lx = 0;
+    while (tram.z > s.dist - 60) step(s);
+    expect(s.hearts).toBe(TUNING.hearts); // passing in the next lane
+    s.lane = 1;
+    for (let i = 0; i < 12; i++) step(s);
+    expect(s.hearts).toBe(TUNING.hearts - 1); // steered into its body
+  });
+
+  it('a festival crowd sends two people from opposite sides', () => {
+    const s = createRun({ ...LEVELS.at(-1)!, threats: ['crowd'], threatChance: 1, dogChance: 0, zoneChance: 0, hazards: [] }, 2, { autoSpawn: false });
+    spawnRow(s, 1500);
+    const walkers = s.objs.filter((o) => o.kind === 'walker');
+    expect(walkers).toHaveLength(2);
+    expect(walkers[0].lane).toBe(2 - walkers[1].lane);
+  });
+});

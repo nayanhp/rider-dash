@@ -117,6 +117,15 @@ export class Renderer {
       } else if (e.type === 'shield') {
         this.popup(x, py, 'Helmet saved you!', '#D99A00');
         this.burst(x, g.yP - 60, '#FFCC2E', 18);
+      } else if (e.type === 'splash') {
+        this.popup(x, py, 'Splash! Steering is slippery', '#2F8CFF');
+        this.burst(x, g.yP - 20, '#4FB3F6', 14);
+      } else if (e.type === 'stolen') {
+        this.popup(x, py, 'A monkey grabbed a parcel!', '#C23A30');
+      } else if (e.type === 'tip') {
+        this.popup(x, py + 64, `Hot food tip +${e.coins} ₹`, '#D97A00');
+      } else if (e.type === 'cold') {
+        this.popup(x, py - 30, 'The food went cold', '#6F7FA0');
       } else if (e.type === 'revive') {
         this.popup(x, py, 'Revived!', '#3A9A1E');
         this.burst(x, py + 20, '#5DD039', 18);
@@ -267,6 +276,19 @@ export class Renderer {
       }
     }
 
+    // Kolkata: tram rails along the rail lane.
+    if (s.cfg.tramLane !== undefined) {
+      c.strokeStyle = night ? 'rgba(200,210,230,.55)' : 'rgba(42,47,90,.45)';
+      for (const off of [-0.18, 0.18]) {
+        const a = this.proj(-200, s.cfg.tramLane + off), b = this.proj(DRAW_DIST, s.cfg.tramLane + off);
+        c.lineWidth = 3;
+        c.beginPath();
+        c.moveTo(a.x, a.y);
+        c.lineTo(b.x, b.y);
+        c.stroke();
+      }
+    }
+
     // Road objects, far to near
     const objs = s.objs.filter((o) => o.z - s.dist < DRAW_DIST && (!o.done || o.kind === 'drop')).sort((a, b) => b.z - a.z);
     for (const o of objs) {
@@ -293,7 +315,14 @@ export class Renderer {
           break;
         }
         case 'parcel':
+          if (o.hot) this.steam(p.x, p.y - 36 * p.s - SPRITES.parcel.draw * lw * 0.55, lw, s.tick);
           drawSprite(c, 'parcel', p.x, p.y - 36 * p.s, SPRITES.parcel.draw * lw);
+          break;
+        case 'puddle':
+        case 'barrier':
+        case 'monkey':
+        case 'tram':
+          drawSprite(c, o.kind, p.x, p.y, SPRITES[o.kind].draw * lw);
           break;
         case 'hole':
           drawSprite(c, 'hole', p.x, p.y, SPRITES.hole.draw * lw);
@@ -335,6 +364,7 @@ export class Renderer {
       }
     }
 
+    if (s.cfg.fog) this.drawFog(g.y0, g.yP);
     this.drawRider(s, g.yP);
     if (s.braking) this.drawBrakeLight(s, g.yP);
     if (s.powers.nitro) this.drawNitro(s, g.yP);
@@ -352,6 +382,37 @@ export class Renderer {
       c.fillRect(-20, -20, W + 40, H + 40);
     }
     c.restore();
+  }
+
+  /** Hot food: three wavy steam lines. */
+  private steam(x: number, y: number, lw: number, tick: number) {
+    const c = this.ctx;
+    const h = lw * 0.28;
+    c.save();
+    c.strokeStyle = 'rgba(255,255,255,0.85)';
+    c.lineWidth = Math.max(1.5, lw * 0.025);
+    c.lineCap = 'round';
+    for (let i = -1; i <= 1; i++) {
+      const sx = x + i * lw * 0.09;
+      const wob = this.reduceMotion ? 0 : Math.sin(tick * 0.2 + i) * lw * 0.02;
+      c.beginPath();
+      c.moveTo(sx, y);
+      c.quadraticCurveTo(sx + lw * 0.04 + wob, y - h / 2, sx - wob, y - h);
+      c.stroke();
+    }
+    c.restore();
+  }
+
+  /** Delhi fog: the far road fades into white; the near road stays clear. */
+  private drawFog(y0: number, yP: number) {
+    const c = this.ctx;
+    const clear = y0 + (yP - y0) * 0.42;
+    const g = c.createLinearGradient(0, y0 - 40, 0, clear);
+    g.addColorStop(0, 'rgba(236,240,245,0.97)');
+    g.addColorStop(0.75, 'rgba(236,240,245,0.85)');
+    g.addColorStop(1, 'rgba(236,240,245,0)');
+    c.fillStyle = g;
+    c.fillRect(-20, y0 - 40, this.W + 40, clear - y0 + 40);
   }
 
   /** Blue exhaust flare and speed streaks while nitro runs. */

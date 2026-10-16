@@ -965,6 +965,9 @@ const SFX: Partial<Record<SimEvent['type'], Sfx>> = {
   deliver: 'drop',
   hit: 'hit',
   bump: 'hit',
+  splash: 'hit',
+  stolen: 'hit',
+  tip: 'coin',
   won: 'clear',
 };
 

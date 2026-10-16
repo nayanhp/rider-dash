@@ -185,5 +185,56 @@
     ],
     "chance": 0.05,
     "teachChance": 0.12
+  },
+  "cityThreats": {
+    "comment": "Each city after Bengaluru brings a signature feature, introduced in its area 3 (at = global index). Puddles and monkeys appear on top of normal traffic, in the open lane just before its reward; zones, hot food and crowds carry on into later cities; fog stays in Delhi and trams in Kolkata.",
+    "schedule": [
+      {
+        "at": 27,
+        "feature": "puddle",
+        "tip": "New: waterlogged roads. A puddle slows you and makes steering sluggish for a moment. Jump it to stay dry."
+      },
+      {
+        "at": 52,
+        "feature": "fog",
+        "tip": "New: winter fog. You can only see a short way ahead, so react early."
+      },
+      {
+        "at": 77,
+        "feature": "zone",
+        "tip": "New: construction zones. Barricades close two lanes for a stretch. Find the open lane and stay in it."
+      },
+      {
+        "at": 102,
+        "feature": "hot",
+        "tip": "New: hot food. Steaming parcels pay a tip if you deliver them within eight seconds."
+      },
+      {
+        "at": 127,
+        "feature": "monkey",
+        "tip": "New: monkeys. One will grab a parcel off your box unless you jump it."
+      },
+      {
+        "at": 152,
+        "feature": "tram",
+        "tip": "New: tram lines. Trams run toward you down the lane with rails. Keep out of it when one comes."
+      },
+      {
+        "at": 177,
+        "feature": "crowd",
+        "tip": "New: festival crowds. People cross from both sides at once. Wait for your gap."
+      }
+    ],
+    "fogCity": "delhi",
+    "fogEvery": 3,
+    "tramCity": "kolkata",
+    "zoneChance": 0.05,
+    "teachZoneChance": 0.16,
+    "hotChance": 0.3,
+    "teachHotChance": 0.7,
+    "tramChance": 0.12,
+    "teachTramChance": 0.22,
+    "hazardChance": 0.18,
+    "teachHazardChance": 0.4
   }
 }

@@ -20,6 +20,10 @@ import skyPuneUrl from '../sprites/skyline-pune.svg';
 import skyKolkataUrl from '../sprites/skyline-kolkata.svg';
 import skyAhmedabadUrl from '../sprites/skyline-ahmedabad.svg';
 import walkerUrl from '../sprites/walker.svg';
+import puddleUrl from '../sprites/puddle.svg';
+import barrierUrl from '../sprites/barrier.svg';
+import monkeyUrl from '../sprites/monkey.svg';
+import tramUrl from '../sprites/tram.svg';
 import dogUrl from '../sprites/dog.svg';
 import scooterUrl from '../sprites/avatars/rider-front.svg';
 import magnetUrl from '../sprites/power-magnet.svg';
@@ -69,6 +73,10 @@ export const SPRITES = {
   'skyline-ahmedabad': spec('skyline-ahmedabad', skyAhmedabadUrl, 0, 0, 400, 80, 0, 80, 0, 1200),
 
   walker: spec('walker', walkerUrl, 0, 0, 64, 128, 32, 123, 0.42, 256),
+  puddle: spec('puddle', puddleUrl, 0, 0, 160, 48, 80, 26, 1.3, 512),
+  barrier: spec('barrier', barrierUrl, 0, 0, 140, 90, 70, 86, 1.05, 512),
+  monkey: spec('monkey', monkeyUrl, 0, 0, 80, 80, 40, 76, 0.5, 256),
+  tram: spec('tram', tramUrl, 0, 0, 120, 150, 60, 145, 1.05, 512),
   dog: spec('dog', dogUrl, 0, 0, 110, 72, 55, 67, 0.62, 384),
   /** Wrong-way scooter: the rider art seen from the front. */
   scooter: spec('scooter', scooterUrl, 0, 0, 128, 160, 64, 153, 0.62, 384),

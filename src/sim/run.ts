@@ -1,6 +1,6 @@
 // Deterministic run simulation. A run is seed + level config + input log: replaying the
 // same three always gives the same result. Fixed tick, no rendering, no DOM, no Math.random.
-import { TUNING, isMover, type HitKind, type LevelConfig, type MoverKind, type ObjKind, type PowerKind, type TimedPower, type Tuning } from './config';
+import { TUNING, isMover, type HitKind, type ThreatKind, type LevelConfig, type MoverKind, type ObjKind, type PowerKind, type TimedPower, type Tuning } from './config';
 import { Rng } from './rng';
 
 export const LANES = 3;
@@ -23,6 +23,10 @@ export interface Obj {
   move?: LaneMove;
   /** Which power-up, for kind 'power'. */
   power?: PowerKind;
+  /** Hot food: pays a tip if delivered quickly. Parcels only. */
+  hot?: boolean;
+  /** Length along the road, for long vehicles (trams). The body runs from z to z + len. */
+  len?: number;
   done: boolean;
 }
 
@@ -56,6 +60,10 @@ export type SimEvent =
   | { type: 'power'; kind: PowerKind }
   | { type: 'powerEnd'; kind: TimedPower }
   | { type: 'shield' }
+  | { type: 'splash' }
+  | { type: 'stolen' }
+  | { type: 'tip'; coins: number }
+  | { type: 'cold' }
   | { type: 'jump' }
   | { type: 'won' }
   | { type: 'lost' }
@@ -87,6 +95,13 @@ export interface RunState {
   powerTaught: boolean;
   /** Most hearts this run can hold: 3, or 4 with the extra-heart boost. */
   maxHearts: number;
+  /** A construction zone in progress: rows still to place and the one open lane. */
+  zone: { rowsLeft: number; open: number } | null;
+  /** Ticks of sluggish steering left after riding through a puddle. */
+  wetT: number;
+  /** Hot parcels on board, and ticks before they go cold. */
+  hotCarry: number;
+  hotT: number;
   mods: RunMods;
   invulnT: number;
   hearts: number;
@@ -150,6 +165,10 @@ export function createRun(cfg: LevelConfig, seed: number, opts: RunOptions = {})
     hearts: maxHearts,
     maxHearts,
     mods,
+    zone: null,
+    wetT: 0,
+    hotCarry: 0,
+    hotT: 0,
     carry: 0,
     delivered: 0,
     coins: 0,
@@ -310,24 +329,65 @@ export function spawnRow(s: RunState, z: number) {
   const rng = new Rng(s.rngState);
   s.rows++;
   const lanes = rng.shuffle([0, 1, 2]);
-  const movers = (s.cfg.threats ?? []).filter((k): k is MoverKind => k !== 'dog');
-  if (s.carry > 0 && s.rows % t.dropEveryRows === 0) {
+  const picks = (s.cfg.threats ?? []).filter((k): k is Exclude<ThreatKind, 'dog'> => k !== 'dog');
+  const tramAhead = s.objs.some((o) => o.kind === 'tram' && !o.done && o.z + (o.len ?? 0) > s.dist);
+  if (s.zone) {
+    zoneRow(s, rng, z);
+  } else if (s.carry > 0 && s.rows % t.dropEveryRows === 0) {
     addObj(s, 'drop', lanes[0], z);
-  } else if (movers.length && rng.next() < (s.cfg.threatChance ?? 0) && moversAhead(s) < (s.cfg.maxMovers ?? 1)) {
-    // A threat row: one moving threat on its own, the reward in the open lane.
-    addMover(s, rng, rng.pick(movers), lanes[0], z);
+  } else if ((s.cfg.zoneChance ?? 0) > 0 && moversAhead(s) === 0 && rng.next() < (s.cfg.zoneChance ?? 0)) {
+    // A construction zone: the same two lanes barricaded for a few rows.
+    s.zone = { rowsLeft: t.zoneRows, open: lanes[2] };
+    zoneRow(s, rng, z);
+  } else if (s.cfg.tramLane !== undefined && !tramAhead && rng.next() < (s.cfg.tramChance ?? 0)) {
+    // A tram comes down the rail lane; the other two lanes stay clear this row.
+    const tram = addMover(s, rng, 'tram', s.cfg.tramLane, z);
+    tram.len = t.tramLen;
+    addReward(s, rng, s.cfg.tramLane === 0 ? 2 : 0, z);
+  } else if (picks.length && rng.next() < (s.cfg.threatChance ?? 0) && moversAhead(s) < (s.cfg.maxMovers ?? 1)) {
+    // A threat row: one moving threat on its own (or a crowd), the reward in the open lane.
+    const pick = rng.pick(picks);
+    if (pick === 'crowd') addCrowd(s, rng, z);
+    else addMover(s, rng, pick, lanes[0], z);
     addReward(s, rng, lanes[2], z);
   } else {
-    const count = rng.next() < s.cfg.density ? 2 : 1;
+    // While a tram is on its way, keep obstacles out of the two other lanes' shared gap:
+    // one obstacle only, and never leave the rail lane as the only way through.
+    if (tramAhead && s.cfg.tramLane !== undefined) {
+      lanes.splice(lanes.indexOf(s.cfg.tramLane), 1);
+      lanes.unshift(s.cfg.tramLane);
+    }
+    const count = !tramAhead && rng.next() < s.cfg.density ? 2 : 1;
     for (let i = 0; i < count; i++) {
       const jitter = i ? rng.range(-t.pairJitter, t.pairJitter) : 0;
       addObj(s, rng.pick(s.cfg.kinds), lanes[i], z + jitter);
     }
+    // A puddle or monkey guards the open lane: jump it, or pay (slowdown or a lost parcel).
+    const hazards = s.cfg.hazards ?? [];
+    if (hazards.length && rng.next() < (s.cfg.hazardChance ?? 0)) addObj(s, rng.pick(hazards), lanes[2], z - t.hazardGap);
     addReward(s, rng, lanes[2], z);
   }
   const dogChance = s.cfg.dogChance ?? 0;
-  if (dogChance > 0 && !s.dog && s.tick >= t.dogMinTick && rng.next() < dogChance) startDog(s);
+  if (dogChance > 0 && !s.dog && !s.zone && s.tick >= t.dogMinTick && rng.next() < dogChance) startDog(s);
   s.rngState = rng.state;
+}
+
+function zoneRow(s: RunState, rng: Rng, z: number) {
+  const zone = s.zone!;
+  for (const lane of [0, 1, 2]) if (lane !== zone.open) addObj(s, 'barrier', lane, z);
+  addReward(s, rng, zone.open, z);
+  if (--zone.rowsLeft <= 0) s.zone = null;
+}
+
+/** Festival crowd: two people crossing from opposite sides, a little apart. */
+function addCrowd(s: RunState, rng: Rng, z: number) {
+  const a = addMover(s, rng, 'walker', 0, z);
+  const b = addMover(s, rng, 'walker', 0, z + s.tuning.coinSpacing * 3);
+  // Send them from opposite sides, whatever side each started on.
+  if (a.lane === b.lane) {
+    b.lane = b.lx = 2 - a.lane;
+    if (b.move) b.move.to = a.lane;
+  }
 }
 
 /** Power-ups that may be placed right now. A heart only shows up after you've lost one. */
@@ -348,7 +408,10 @@ function addReward(s: RunState, rng: Rng, lane: number, z: number) {
     addPower(s, rng.pick(powers), lane, z + t.parcelOffset);
     return;
   }
-  if (rng.next() < t.parcelChance && s.carry < carryCap(s)) addObj(s, 'parcel', lane, z + t.parcelOffset);
+  if (rng.next() < t.parcelChance && s.carry < carryCap(s)) {
+    const p = addObj(s, 'parcel', lane, z + t.parcelOffset);
+    if ((s.cfg.hotChance ?? 0) > 0 && rng.next() < (s.cfg.hotChance ?? 0)) p.hot = true;
+  }
   else for (let c = 0; c < t.coinsPerRow; c++) addObj(s, 'coin', lane, z + t.coinOffset + c * t.coinSpacing);
 }
 
@@ -392,6 +455,7 @@ function crash(s: RunState, kind: HitKind) {
   s.v *= t.hitSlow;
   const lostParcel = s.carry > 0;
   if (lostParcel) s.carry--;
+  s.hotCarry = Math.min(s.hotCarry, s.carry);
   s.events.push({ type: 'hit', kind, lostParcel });
   if (s.hearts <= 0) s.status = 'lost';
 }
@@ -407,6 +471,10 @@ function collide(s: RunState, o: Obj) {
     if (s.carry >= carryCap(s)) return;
     o.done = true;
     s.carry++;
+    if (o.hot) {
+      s.hotCarry++;
+      s.hotT = t.hotTicks;
+    }
     s.events.push({ type: 'parcel' });
   } else if (o.kind === 'drop') {
     // Each home takes one parcel. Carry more and you need more drop-offs.
@@ -418,6 +486,14 @@ function collide(s: RunState, o: Obj) {
     s.delivered++;
     s.coins += coins;
     s.events.push({ type: 'deliver', parcels: 1, coins, combo: s.combo });
+    if (s.hotCarry > 0 && s.hotT > 0) {
+      // Hot food still hot: the customer tips.
+      s.hotCarry--;
+      const tip = t.hotTip * coinMult(s);
+      s.coins += tip;
+      s.events.push({ type: 'tip', coins: tip });
+    }
+    s.hotCarry = Math.min(s.hotCarry, s.carry);
     if (s.dog) {
       // The dog gives up at the doorstep.
       s.dog = null;
@@ -427,6 +503,23 @@ function collide(s: RunState, o: Obj) {
   } else if (o.kind === 'power') {
     o.done = true;
     if (o.power) grantPower(s, o.power);
+  } else if (o.kind === 'puddle') {
+    // Jump it, or splash through: a little slower and sluggish steering for a moment.
+    if (airborne(s) || hasPower(s, 'nitro')) return;
+    o.done = true;
+    s.v = Math.min(s.v, targetSpeed(s) * t.puddleSlow);
+    s.wetT = t.wetTicks;
+    s.events.push({ type: 'splash' });
+  } else if (o.kind === 'monkey') {
+    // Jump it, or it grabs a parcel off your box. No heart lost.
+    if (airborne(s) || hasPower(s, 'nitro')) return;
+    o.done = true;
+    if (s.carry > 0) {
+      s.carry--;
+      s.hotCarry = Math.min(s.hotCarry, s.carry);
+      s.combo = 0;
+      s.events.push({ type: 'stolen' });
+    }
   } else if (o.kind === 'hole' || o.kind === 'bump') {
     // Jump it, or ride over it and lose most of your speed. No heart lost. Nitro skims over.
     if (airborne(s) || hasPower(s, 'nitro')) return;
@@ -445,9 +538,10 @@ function collide(s: RunState, o: Obj) {
 function inReach(s: RunState, o: Obj, myLane: number): boolean {
   const t = s.tuning;
   const rel = o.z - s.dist;
-  if (rel < -t.hitWindow) return false;
+  if (rel < -t.hitWindow - (o.len ?? 0)) return false;
   if (o.kind === 'coin' && hasPower(s, 'magnet')) return rel <= t.magnetReach;
   if (o.kind === 'parcel' && hasPower(s, 'net')) return Math.abs(o.lane - myLane) <= 1 && rel <= t.netReach;
+  // The first check allowed for a long vehicle's body (z to z + len); without one, the window is symmetric.
   return o.lane === myLane && rel <= t.hitWindow;
 }
 
@@ -503,7 +597,12 @@ export function step(s: RunState, cmds: readonly Command[] = []) {
   else s.v = Math.max(target, s.v - (braking ? t.brakeDecel : t.speedAccel) * dt);
   s.dist += s.v * dt;
   s.tick++;
-  const follow = s.cfg.rain ? t.rainLaneFollow : t.laneFollow;
+  const follow = s.cfg.rain || s.wetT > 0 ? t.rainLaneFollow : t.laneFollow;
+  if (s.wetT > 0) s.wetT--;
+  if (s.hotT > 0 && --s.hotT === 0 && s.hotCarry > 0) {
+    s.hotCarry = 0;
+    s.events.push({ type: 'cold' });
+  }
   s.lx += (s.lane - s.lx) * Math.min(1, dt * follow);
   if (Math.abs(s.lane - s.lx) < 1e-3) s.lx = s.lane;
   if (s.jumpT > 0) s.jumpT--;
@@ -526,7 +625,7 @@ export function step(s: RunState, cmds: readonly Command[] = []) {
     if (s.status !== 'running') break;
   }
   s.objs = s.objs.filter(
-    (o) => o.z - s.dist > -t.despawnBehind && !(o.done && (o.kind === 'coin' || o.kind === 'parcel' || o.kind === 'power')),
+    (o) => o.z + (o.len ?? 0) - s.dist > -t.despawnBehind && !(o.done && (o.kind === 'coin' || o.kind === 'parcel' || o.kind === 'power')),
   );
   // collide() may have ended the run; TS narrowed status to 'running' above.
   const end = s.status as RunStatus;

@@ -67,6 +67,12 @@
       "trigger": 0,
       "warnTicks": 0,
       "laneSpeed": 0
+    },
+    "tram": {
+      "vz": -160,
+      "trigger": 0,
+      "warnTicks": 0,
+      "laneSpeed": 0
     }
   },
   "powerTicks": {
@@ -79,5 +85,12 @@
   "netReach": 240,
   "nitroBoost": 1.45,
   "powerTeachRow": 3,
-  "extraHeartBoost": 1
+  "extraHeartBoost": 1,
+  "puddleSlow": 0.75,
+  "wetTicks": 90,
+  "hotTicks": 480,
+  "hotTip": 15,
+  "zoneRows": 4,
+  "tramLen": 170,
+  "hazardGap": 130
 }

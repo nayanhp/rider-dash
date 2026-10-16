@@ -55,7 +55,7 @@ function decide(s: RunState, queue: readonly (Command | null)[]): Command | null
   const spd = Math.max(1, speed(s));
   // Look about a second ahead in time, so oncoming scooters are seen earlier than parked cars.
   const reach = (o: Obj) => (o.z - s.dist) / Math.max(1, spd - o.vz);
-  const ahead = s.objs.filter((o) => !o.done && o.z - s.dist > -t.hitWindow && reach(o) < 1.15 + t.hitWindow / spd);
+  const ahead = s.objs.filter((o) => !o.done && o.z + (o.len ?? 0) - s.dist > -t.hitWindow && reach(o) < 1.15 + t.hitWindow / spd);
   const threats = (lane: number) =>
     ahead.filter((o) => !REWARD.has(o.kind) && lanesOf(s, o, spd).includes(lane)).sort((a, b) => a.z - b.z);
   const nearest = (lane: number) => threats(lane)[0];

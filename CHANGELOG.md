@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.12.0 — 2026-10-16 · City signature threats (Phase 4b)
+
+Each city after Bengaluru introduces its feature in area 3 with a "New:" tip; that area is kept
+dry and in daylight. Data in `levels.json` → `cityThreats`, timings in `tuning.json`.
+
+- Mumbai — waterlogged puddles: ride through and you slow a little and steer sluggishly for
+  1.5 s; jump to stay dry. Puddles guard the open lane, on top of normal traffic.
+- Delhi — winter fog (Delhi only): the far road fades into white. Visual only.
+- Hyderabad — construction zones: barricades close the same two lanes for four rows.
+- Chennai — hot food: steaming parcels pay a 15-coin tip if delivered within 8 s.
+- Pune — monkeys guard the open lane and grab a parcel unless you jump (no heart lost).
+- Kolkata — tram lines (Kolkata only): one lane has rails; long trams run toward you down it.
+  While one is coming, the other two lanes carry at most one obstacle.
+- Ahmedabad — festival crowds: two people cross from opposite sides at once.
+- Puddles, zones, hot food, monkeys and crowds carry on into later cities.
+- New sprites: puddle, barricade, monkey, tram.
+- BALANCE.md: Bengaluru 98% → Mumbai 96% → … → Ahmedabad 74%. 109 tests.
+
 ## 0.11.0 — 2026-10-16 · City landmark skylines (Phase 4a)
 
 - Each city has its own skyline behind the road, centred on a landmark: Vidhana Soudha

@@ -114,3 +114,35 @@ describe('threat schedule', () => {
     expect(LEVELS[hyd].maxMovers).toBe(2);
   });
 });
+
+describe('city signature features', () => {
+  it('each city after Bengaluru introduces its feature in area 3, with a tip', () => {
+    for (const c of CITIES.slice(1)) {
+      const l = c.levels[2];
+      expect(l.tip.startsWith('New:')).toBe(true);
+      expect(l.rain || l.night).toBeFalsy();
+    }
+    expect(CITIES[1].levels[2].hazards).toEqual(['puddle']);
+    expect(CITIES[2].levels[2].fog).toBe(true);
+    expect(CITIES[3].levels[2].zoneChance).toBeGreaterThan(0);
+    expect(CITIES[4].levels[2].hotChance).toBeGreaterThan(0);
+    expect(CITIES[5].levels[2].hazards).toEqual(['monkey']);
+    expect(CITIES[6].levels[2].tramLane).toBeDefined();
+    expect(CITIES[7].levels[2].threats).toEqual(['crowd']);
+  });
+
+  it('keeps fog in Delhi and trams in Kolkata; carries the rest forward', () => {
+    for (const l of LEVELS) {
+      if (l.fog) expect(l.city).toBe('Delhi');
+      if (l.tramLane !== undefined) expect(l.city).toBe('Kolkata');
+    }
+    const last = LEVELS.at(-1)!;
+    expect(last.hazards).toEqual(['puddle', 'monkey']);
+    expect(last.zoneChance).toBeGreaterThan(0);
+    expect(last.hotChance).toBeGreaterThan(0);
+    expect(last.threats).toContain('crowd');
+    for (const l of CITIES[0].levels) {
+      expect(l.hazards ?? l.fog ?? l.zoneChance ?? l.hotChance ?? l.tramLane).toBeUndefined();
+    }
+  });
+});
