@@ -15,9 +15,17 @@
   that already played a rewarded ad, does not also play a midgame — including when the player
   skips the video.
 - iPhone-minded layout: HUD, hint, combo, menus, and the mute button follow safe-area insets
-  on all four edges. Premium rider previews use blob URLs so WebKit can paint SVG patterns
-  and gradients. Audio also resumes on `touchend`. Checked in Playwright WebKit with iPhone
-  emulation, not on a physical phone.
+  on all four edges. On a short landscape phone the menu logo and buttons shrink so Play,
+  Endless, and Cities / Rider / Shop sit above the mute button.
+- Premium rider previews use blob URLs so WebKit can paint SVG pattern and gradient fills.
+  Audio resumes on `pointerdown` and `touchend`. A resume that fails (no output device)
+  is ignored instead of becoming an unhandled rejection.
+- Checked in Playwright WebKit with an iPhone 13 profile, not on a physical iPhone or the
+  iOS Simulator. First run reached the road and hint in well under a second; a swipe changed
+  lane; pause and resume worked; the CrazyGames menu had no coin-store control; Shop and Rider
+  requested no ads; a racing-stripe preview painted both colours. About 60 fps in that emulator.
+  Safe-area insets were 0 (no notch to emulate). The audio context stayed suspended because
+  that WebKit build has no audio output device.
 
 ## 0.14.2 — 2026-10-16 · Logo fallback
 

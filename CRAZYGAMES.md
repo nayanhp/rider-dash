@@ -107,7 +107,7 @@ No privacy-policy link is required for this build: nothing is sent to our own an
 - Relative asset paths, iframe-sized layout (including the sizes they list: 907×510, 1216×684, 1077×606, 821×462, 1366×768, 1920×1080, 1536×864, 1280×720, 800×450, 1080×607), touch and keyboard, `user-select: none`, safe-area padding on the HUD and menus.
 - No external links, no cross-promo, no in-game fullscreen button, no banner ads.
 - English only. PEGI-12 tone: a scooter, traffic, and a cow. No account login of our own.
-- Chrome, Firefox, and Safari share one code path (pointer events, canvas 2D, no engine-specific audio). Safari on this machine was not available to launch; the build does not use APIs those browsers disagree on.
+- Chrome, Firefox, and Safari share one code path (pointer events, canvas 2D, WebAudio). Playwright WebKit with an iPhone 13 profile was used to check touch, the menu, a run, pause, the shop, and premium pattern fills. That is not a physical iPhone: the emulator reported no notch, and it has no audio output device, so the audio context stayed suspended after the unlock gesture.
 
 ## In-game purchases (coin packs)
 

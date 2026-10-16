@@ -519,6 +519,20 @@ html, body {
   .big-stars .star { width: 36px; height: 36px; }
   .col .btn.green { height: 56px; font-size: 1.15rem; }
 }
+/* Phone landscape is about 390px tall. Keep Play, Endless, and Cities / Rider / Shop
+   above the mute button, which sits in the bottom corner of the column. */
+@media (max-height: 430px) {
+  .logo { width: min(30%, 104px); margin-bottom: 0; }
+  .panel { padding: 6px 12px 8px; }
+  .tag, .where { margin: 0; font-size: 0.85rem; line-height: 1.2; }
+  .tip { margin: 4px 0; padding: 4px 8px; }
+  .col { gap: 4px; margin-top: 4px; }
+  .col .btn { height: 36px; min-height: 0; padding: 4px 8px; font-size: 0.95rem; }
+  .col .btn.green { height: 40px; font-size: 1rem; }
+  #overlay, #pause {
+    padding: 4px max(8px, env(safe-area-inset-right)) max(58px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  }
+}
 @media (max-width: 380px) {
   #hud { inset-inline: 6px; }
   #hud-left, #hud-mid, #hud-right { font-size: 0.9rem; padding: 0 10px; }
