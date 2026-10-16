@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.8.0 — 2026-10-16 · Threats and the brake (Phase 1)
+
+- Moving threats, unlocked one per teaching area in Bengaluru, each with a "New:" tip card:
+  people crossing (Malleshwaram), a slow cow ambling down your lane (JP Nagar), swerving autos
+  that flash an indicator first (Frazer Town), a chasing street dog (Banashankari) and
+  wrong-way scooters (Marathahalli). The area after each one is a breather with fewer threats.
+  One moving threat at a time until Hyderabad, then two. Schedule and rates are in
+  `levels.json` → `threats`; speeds and timings in `tuning.json` → `movers`.
+- The dog runs just faster than your cruising speed for 6 s. Hold your speed and it gives up;
+  a crash or a pothole lets it catch you (counts as a crash). A drop-off shakes it off.
+- Potholes and speed breakers no longer cost a heart. Ride over one and you drop to about half
+  speed and lose your combo; jump it to keep going.
+- A crash also costs some speed.
+- Brake: swipe down and hold, or hold ↓ / S. Slows to half speed while held, never stops; let
+  go to speed back up. Resets your combo. Unlocks in Mumbai (Khar) so Bengaluru stays simple.
+- New sprites: pedestrian and street dog. The wrong-way scooter uses the front rider art.
+- Practice bot predicts lane changes by arrival time and uses the brake where it is unlocked.
+  BALANCE.md: Bengaluru 98% clear, every city declining gently to Ahmedabad 54%.
+- Tests guard the schedule, that the first five Bengaluru areas always clear, and that
+  Bengaluru as a whole clears at least 90%. 85 tests.
+
 ## 0.7.0 — 2026-10-16 · One parcel per home, speed per drop-off
 
 - A DROP zone takes one parcel. Carrying three means three drop-offs. Each drop-off pays

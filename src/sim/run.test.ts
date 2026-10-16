@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ENDLESS, LEVELS, TUNING } from './config';
 import { Rng } from './rng';
-import { addObj, airborne, beatBest, carryCap, createRun, targetSpeed, replay, reviveStillOpen, score, speed, spawnRow, step, type Command, type InputLog } from './run';
+import { addMover, addObj, airborne, startDog, beatBest, carryCap, createRun, targetSpeed, replay, reviveStillOpen, score, speed, spawnRow, step, type Command, type InputLog } from './run';
 
 const L1 = LEVELS[0];
 const ALL_KINDS = LEVELS[3];
@@ -278,5 +278,124 @@ describe('endless', () => {
   it('a run with no input eventually ends', () => {
     const s = replay(ENDLESS, 9, [], 60 * 60 * 10);
     expect(s.status).toBe('lost');
+  });
+});
+
+describe('slowdowns', () => {
+  it('riding over a pothole slows you down but costs no heart', () => {
+    const s = bare();
+    addObj(s, 'hole', 1, 200);
+    while (!s.events.some((e) => e.type === 'bump')) step(s);
+    expect(s.hearts).toBe(TUNING.hearts);
+    expect(speed(s)).toBeLessThan(L1.v0 * 0.6);
+    for (let i = 0; i < 40; i++) step(s);
+    expect(speed(s)).toBeLessThan(L1.v0); // still recovering after two-thirds of a second
+    for (let i = 0; i < 120; i++) step(s);
+    expect(speed(s)).toBe(L1.v0); // back up to speed within about two seconds
+  });
+
+  it('jumping a speed breaker keeps your speed', () => {
+    const s = bare(LEVELS[3]);
+    addObj(s, 'bump', 1, 100);
+    rideTo(s, 60, ['jump']);
+    rideTo(s, 150);
+    expect(speed(s)).toBe(LEVELS[3].v0);
+  });
+});
+
+describe('brake', () => {
+  const braky = () => createRun({ ...L1, brake: true }, 1, { autoSpawn: false });
+
+  it('slows while held, never stops, and lets go to speed back up', () => {
+    const s = braky();
+    step(s, ['brakeOn']);
+    for (let i = 0; i < 120; i++) step(s);
+    expect(speed(s)).toBe(L1.v0 * TUNING.brakeFactor);
+    expect(speed(s)).toBeGreaterThan(0);
+    step(s, ['brakeOff']);
+    for (let i = 0; i < 120; i++) step(s);
+    expect(speed(s)).toBe(L1.v0);
+  });
+
+  it('does nothing before it unlocks', () => {
+    const s = bare();
+    step(s, ['brakeOn']);
+    for (let i = 0; i < 60; i++) step(s);
+    expect(s.braking).toBe(false);
+    expect(speed(s)).toBe(L1.v0);
+  });
+
+  it('resets the combo', () => {
+    const s = braky();
+    s.combo = 2;
+    step(s, ['brakeOn']);
+    expect(s.combo).toBe(0);
+  });
+});
+
+describe('moving threats', () => {
+  const rng = () => new Rng(7);
+
+  it('a person walks across every lane once you get close', () => {
+    const s = bare();
+    const w = addMover(s, rng(), 'walker', 0, 1000);
+    const start = w.lane;
+    rideTo(s, 500);
+    expect(w.lane).not.toBe(start);
+    expect(w.move?.to).toBe(2 - start);
+  });
+
+  it('a swerving auto flashes first, then changes lane', () => {
+    const s = bare();
+    const a = addMover(s, rng(), 'autoSwerve', 1, 900);
+    expect(a.move).toBeDefined();
+    while (a.move!.phase === 'wait') step(s);
+    expect(a.move!.phase).toBe('warn');
+    expect(a.lane).toBe(1);
+    while (a.move!.phase !== 'done') step(s);
+    expect(a.lane).toBe(a.move!.to);
+    expect(Math.abs(a.lane - 1)).toBe(1);
+  });
+
+  it('a wrong-way scooter rides toward you', () => {
+    const s = bare();
+    const sc = addMover(s, rng(), 'scooter', 0, 1500);
+    step(s);
+    expect(sc.z).toBeLessThan(1500);
+  });
+
+  it('a slow cow ambles away, so you close on it slowly', () => {
+    const s = bare();
+    const cow = addMover(s, rng(), 'cowWalk', 2, 1000);
+    step(s);
+    expect(cow.z).toBeGreaterThan(1000);
+  });
+});
+
+describe('dog chase', () => {
+  it('gives up after a while if you hold your speed', () => {
+    const s = bare();
+    startDog(s);
+    for (let i = 0; i < TUNING.dogTicks; i++) step(s);
+    expect(s.dog).toBeNull();
+    expect(s.hearts).toBe(TUNING.hearts);
+  });
+
+  it('catches you after a pothole, and that counts as a crash', () => {
+    const s = bare();
+    startDog(s);
+    addObj(s, 'hole', 1, 60);
+    addObj(s, 'hole', 1, 160);
+    for (let i = 0; i < TUNING.dogTicks && s.dog; i++) step(s);
+    expect(s.hearts).toBe(TUNING.hearts - 1);
+  });
+
+  it('gives up when you drop off a parcel', () => {
+    const s = bare();
+    s.carry = 1;
+    startDog(s);
+    addObj(s, 'drop', 1, 100);
+    rideTo(s, 150);
+    expect(s.dog).toBeNull();
   });
 });

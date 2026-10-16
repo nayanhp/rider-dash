@@ -67,3 +67,50 @@ describe('city levels', () => {
     expect(last.density).toBeGreaterThan(before.density);
   });
 });
+
+describe('threat schedule', () => {
+  const bengaluru = CITIES[0].levels;
+  const intro = (kind: string) => LEVELS.findIndex((l) => l.threats?.includes(kind as never));
+
+  it('keeps the first five areas free of moving threats', () => {
+    for (const l of bengaluru.slice(0, 5)) expect(l.threats).toBeUndefined();
+  });
+
+  it('introduces each threat in its planned Bengaluru area, alone', () => {
+    const plan: Array<[string, string]> = [
+      ['walker', 'Malleshwaram'],
+      ['cowWalk', 'JP Nagar'],
+      ['autoSwerve', 'Frazer Town'],
+      ['dog', 'Banashankari'],
+      ['scooter', 'Marathahalli'],
+    ];
+    for (const [kind, area] of plan) {
+      const l = LEVELS[intro(kind)];
+      expect(l.name).toBe(area);
+      expect(l.threats).toEqual([kind]);
+      expect(l.tip.startsWith('New:')).toBe(true);
+      expect(l.rain || l.night).toBeFalsy();
+    }
+  });
+
+  it('follows each new threat with a calmer area', () => {
+    const at = intro('autoSwerve');
+    const later = LEVELS[at + 1];
+    const peer = LEVELS[at + 4]; // at + 3 is itself the breather after the dog
+    expect(later.threatChance!).toBeLessThan(peer.threatChance!);
+  });
+
+  it('keeps the brake out of Bengaluru and unlocks it in Mumbai', () => {
+    for (const l of bengaluru) expect(l.brake).toBeUndefined();
+    const first = LEVELS.findIndex((l) => l.brake);
+    expect(LEVELS[first].city).toBe('Mumbai');
+    expect(LEVELS[first].tip).toMatch(/brake/i);
+    expect(LEVELS.slice(first).every((l) => l.brake)).toBe(true);
+  });
+
+  it('allows one moving threat at a time until Hyderabad', () => {
+    const hyd = LEVELS.findIndex((l) => l.city === 'Hyderabad');
+    expect(LEVELS.slice(0, hyd).every((l) => (l.maxMovers ?? 1) === 1)).toBe(true);
+    expect(LEVELS[hyd].maxMovers).toBe(2);
+  });
+});

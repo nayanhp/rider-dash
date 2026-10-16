@@ -42,7 +42,7 @@
         "hole",
         "bump"
       ],
-      "tip": "Swipe up (or press ⬆) to jump over potholes and speed breakers."
+      "tip": "Potholes and speed breakers slow you right down. Swipe up (or press ⬆) to jump them."
     },
     {
       "kinds": [
@@ -76,7 +76,18 @@
       "hole",
       "bump",
       "cow"
-    ]
+    ],
+    "threats": [
+      "walker",
+      "cowWalk",
+      "autoSwerve",
+      "dog",
+      "scooter"
+    ],
+    "threatChance": 0.3,
+    "maxMovers": 2,
+    "dogChance": 0.06,
+    "brake": true
   },
   "tips": [
     "Back-to-back deliveries without a crash multiply your coins, up to ×3.",
@@ -84,5 +95,48 @@
     "Each home takes one parcel. Carry up to 3, and a crash knocks one off your box.",
     "Jump early. Potholes arrive fast once you're up to speed.",
     "Finish with all 3 hearts for 3 stars."
-  ]
+  ],
+  "threats": {
+    "comment": "Moving threats unlock by global area index (0 = Koramangala). The unlock area teaches one threat alone; the next area is a breather with fewer threats. chance is the share of rows that carry a moving threat, by difficulty.",
+    "schedule": [
+      {
+        "at": 5,
+        "kind": "walker",
+        "tip": "New: people crossing. They walk slowly across the road. Time your lane, or go round them."
+      },
+      {
+        "at": 7,
+        "kind": "cowWalk",
+        "tip": "New: a cow ambling down your lane. It moves slowly, so you catch up fast. Change lanes early to go round it."
+      },
+      {
+        "at": 10,
+        "kind": "autoSwerve",
+        "tip": "New: swerving autos. When an auto flashes its indicator, it is about to cut into the next lane."
+      },
+      {
+        "at": 12,
+        "kind": "dog",
+        "tip": "New: a street dog gives chase. Keep your speed up: a crash or a pothole lets it catch you. Drop off a parcel and it gives up."
+      },
+      {
+        "at": 16,
+        "kind": "scooter",
+        "tip": "New: wrong-way scooters. They ride straight at you, so they arrive fast."
+      }
+    ],
+    "chance": [
+      0.12,
+      0.26
+    ],
+    "teachChance": 0.3,
+    "breatherScale": 0.5,
+    "teachDogChance": 0.15,
+    "dogChance": 0.05,
+    "twoMoversFrom": 75
+  },
+  "brake": {
+    "at": 26,
+    "tip": "New: brake. Swipe down and hold (or hold ⬇) to slow down, never stop. Let go to speed back up. Braking resets your combo."
+  }
 }

@@ -33,13 +33,31 @@ function pendingLane(s: RunState, queue: readonly (Command | null)[]): number {
   return clampLane(lane);
 }
 
+/** Lanes a threat holds now and will hold when the rider reaches it. */
+function lanesOf(s: RunState, o: Obj, spd: number): number[] {
+  const m = o.move;
+  if (!m || m.phase === 'done') return [o.lane];
+  const rel = o.z - s.dist;
+  const closing = Math.max(1, spd - o.vz);
+  const arrive = Math.max(0, rel) / closing;
+  const delay =
+    m.phase === 'wait' ? Math.max(0, rel - m.trigger) / closing + m.warnTicks / s.tuning.tickRate
+    : m.phase === 'warn' ? m.warnLeft / s.tuning.tickRate
+    : 0;
+  const travel = Math.max(0, arrive - delay) * m.laneSpeed;
+  const dir = Math.sign(m.to - o.lx);
+  const later = Math.round(dir > 0 ? Math.min(m.to, o.lx + travel) : Math.max(m.to, o.lx - travel));
+  return later === o.lane ? [o.lane] : [o.lane, later];
+}
+
 function decide(s: RunState, queue: readonly (Command | null)[]): Command | null {
   const t = s.tuning;
   const spd = Math.max(1, speed(s));
-  const look = spd * 1.15 + t.hitWindow;
-  const ahead = s.objs.filter((o) => !o.done && o.z - s.dist < look && o.z - s.dist > -t.hitWindow);
+  // Look about a second ahead in time, so oncoming scooters are seen earlier than parked cars.
+  const reach = (o: Obj) => (o.z - s.dist) / Math.max(1, spd - o.vz);
+  const ahead = s.objs.filter((o) => !o.done && o.z - s.dist > -t.hitWindow && reach(o) < 1.15 + t.hitWindow / spd);
   const threats = (lane: number) =>
-    ahead.filter((o) => o.lane === lane && !REWARD.has(o.kind)).sort((a, b) => a.z - b.z);
+    ahead.filter((o) => !REWARD.has(o.kind) && lanesOf(s, o, spd).includes(lane)).sort((a, b) => a.z - b.z);
   const nearest = (lane: number) => threats(lane)[0];
   const blocked = (lane: number) => {
     const n = nearest(lane);
@@ -77,6 +95,14 @@ function decide(s: RunState, queue: readonly (Command | null)[]): Command | null
     const ideal = react + arm;
     const slack = spd * (10 / t.tickRate);
     if (dz > ideal - slack && dz < ideal + slack) return 'jump';
+  }
+
+  // Where the brake is unlocked, hold it when every lane ahead is blocked; let go once clear.
+  if (s.cfg.brake) {
+    const allBlocked = [0, 1, 2].every((lane) => blocked(lane));
+    const queuedBrake = queue.includes('brakeOn');
+    if (allBlocked && !s.braking && !queuedBrake) return 'brakeOn';
+    if (!allBlocked && (s.braking || queuedBrake) && !queue.includes('brakeOff')) return 'brakeOff';
   }
 
   if (desired < committed) return 'left';

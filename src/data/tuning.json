@@ -31,5 +31,42 @@
   "reviveHearts": 1,
   "coinDoubleMultiplier": 2,
   "speedAccel": 90,
-  "endlessSpeedPerDrop": 12
+  "endlessSpeedPerDrop": 12,
+  "brakeFactor": 0.5,
+  "brakeDecel": 700,
+  "recoverAccel": 110,
+  "bumpSlow": 0.55,
+  "hitSlow": 0.7,
+  "dogTicks": 360,
+  "dogStartGap": 150,
+  "dogPace": 1.05,
+  "dogMinTick": 180,
+  "movers": {
+    "walker": {
+      "vz": 0,
+      "trigger": 900,
+      "warnTicks": 0,
+      "laneSpeed": 0.9
+    },
+    "cowWalk": {
+      "vz": 90,
+      "trigger": 450,
+      "warnTicks": 30,
+      "laneSpeed": 1.5,
+      "driftChance": 0.5
+    },
+    "autoSwerve": {
+      "vz": 110,
+      "trigger": 650,
+      "warnTicks": 30,
+      "laneSpeed": 2.2,
+      "driftChance": 1
+    },
+    "scooter": {
+      "vz": -220,
+      "trigger": 0,
+      "warnTicks": 0,
+      "laneSpeed": 0
+    }
+  }
 }

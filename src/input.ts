@@ -5,6 +5,7 @@ import type { Command } from './sim/run';
 const SWIPE_PX = 28;
 const KEYS: Record<string, Command> = {
   ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right', ArrowUp: 'jump', w: 'jump', ' ': 'jump',
+  ArrowDown: 'brakeOn', s: 'brakeOn',
 };
 
 export class Input {
@@ -13,6 +14,8 @@ export class Input {
   private queue: Command[] = [];
   private start: { x: number; y: number } | null = null;
   private swiped = false;
+  /** A swipe down, or ↓, held: the brake stays on until the finger lifts or the key is released. */
+  private braking = false;
 
   /** riderX returns the rider's screen x, so a tap can mean "move toward where I tapped". */
   constructor(target: HTMLElement, private riderX: () => number) {
@@ -30,6 +33,7 @@ export class Input {
       const dx = e.clientX - this.start.x, dy = e.clientY - this.start.y;
       if (Math.abs(dx) > SWIPE_PX && Math.abs(dx) > Math.abs(dy)) this.push(dx > 0 ? 'right' : 'left');
       else if (dy < -SWIPE_PX && Math.abs(dy) > Math.abs(dx)) this.push('jump');
+      else if (dy > SWIPE_PX && Math.abs(dy) > Math.abs(dx)) this.brake(true);
       else return;
       this.swiped = true;
     });
@@ -39,15 +43,39 @@ export class Input {
         this.push(x > this.riderX() ? 'right' : 'left');
       }
       this.start = null;
+      this.brake(false);
     });
-    target.addEventListener('pointercancel', () => (this.start = null));
+    target.addEventListener('pointercancel', () => {
+      this.start = null;
+      this.brake(false);
+    });
     target.addEventListener('contextmenu', (e) => e.preventDefault());
     window.addEventListener('keydown', (e) => {
       const cmd = KEYS[e.key];
       if (!cmd || e.repeat || !this.enabled) return;
       e.preventDefault();
-      this.push(cmd);
+      if (cmd === 'brakeOn') this.brake(true);
+      else this.push(cmd);
     });
+    window.addEventListener('keyup', (e) => {
+      if (KEYS[e.key] === 'brakeOn') this.brake(false);
+    });
+    window.addEventListener('blur', () => this.brake(false));
+  }
+
+  private brake(on: boolean) {
+    if (on === this.braking) return;
+    if (on && !this.enabled) return;
+    this.braking = on;
+    // Releasing always reaches the sim, even mid-pause, so the brake can never stick on.
+    if (on) this.push('brakeOn');
+    else this.queue.push('brakeOff');
+  }
+
+  /** Let go of the brake, e.g. when a run pauses or resumes. */
+  releaseBrake() {
+    this.braking = false;
+    this.queue.push('brakeOff');
   }
 
   private push(c: Command) {

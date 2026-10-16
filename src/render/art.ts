@@ -11,6 +11,9 @@ import dropUrl from '../sprites/drop-pad.svg';
 import treeUrl from '../sprites/tree.svg';
 import houseUrl from '../sprites/house.svg';
 import skylineUrl from '../sprites/skyline-strip.svg';
+import walkerUrl from '../sprites/walker.svg';
+import dogUrl from '../sprites/dog.svg';
+import scooterUrl from '../sprites/avatars/rider-front.svg';
 
 export interface SpriteSpec {
   id: string;
@@ -41,6 +44,10 @@ export const SPRITES = {
   tree: spec('tree', treeUrl, 0, 0, 80, 110, 40, 106, 0.9, 512),
   house: spec('house', houseUrl, 0, 0, 80, 80, 40, 76, 0.7, 512),
   skyline: spec('skyline', skylineUrl, 0, 0, 400, 80, 0, 80, 0, 1200),
+  walker: spec('walker', walkerUrl, 0, 0, 64, 128, 32, 123, 0.42, 256),
+  dog: spec('dog', dogUrl, 0, 0, 110, 72, 55, 67, 0.62, 384),
+  /** Wrong-way scooter: the rider art seen from the front. */
+  scooter: spec('scooter', scooterUrl, 0, 0, 128, 160, 64, 153, 0.62, 384),
 } as const satisfies Record<string, SpriteSpec>;
 
 export type SpriteId = keyof typeof SPRITES;

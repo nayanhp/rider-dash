@@ -11,6 +11,10 @@ describe('balance', () => {
     expect(rows[0].clearRate).toBe(1);
     expect(findOutliers(rows).filter((o) => o.kind === 'plateau')).toEqual([]);
     expect(findOutliers(rows).filter((o) => o.kind === 'spike')).toEqual([]);
+    // Bengaluru keeps players: the first five areas always clear, the city as a whole nearly always.
+    const blr = rows.filter((r) => r.city === 'Bengaluru');
+    expect(blr.slice(0, 5).every((r) => r.clearRate === 1)).toBe(true);
+    expect(blr.reduce((n, r) => n + r.clearRate, 0) / blr.length).toBeGreaterThanOrEqual(0.9);
     const first = playLevel(LEVELS[0], 1);
     expect(first.status).toBe('won');
     expect(playLevel(LEVELS[0], 1)).toEqual(first);

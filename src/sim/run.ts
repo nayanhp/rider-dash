@@ -1,26 +1,56 @@
 // Deterministic run simulation. A run is seed + level config + input log: replaying the
 // same three always gives the same result. Fixed tick, no rendering, no DOM, no Math.random.
-import { JUMPABLE, TUNING, type LevelConfig, type ObjKind, type ObstacleKind, type Tuning } from './config';
+import { TUNING, isMover, type HitKind, type LevelConfig, type MoverKind, type ObjKind, type Tuning } from './config';
 import { Rng } from './rng';
 
 export const LANES = 3;
-export type Command = 'left' | 'right' | 'jump' | 'revive' | 'reviveCoins';
+/** brakeOn / brakeOff bracket a held brake: the rider slows while it is held, never stops. */
+export type Command = 'left' | 'right' | 'jump' | 'brakeOn' | 'brakeOff' | 'revive' | 'reviveCoins';
 export type RunStatus = 'running' | 'won' | 'lost';
 
 export interface Obj {
   id: number;
   kind: ObjKind;
+  /** Lane used for collisions: the nearest lane to lx. */
   lane: number;
+  /** Position across the road, in lanes. Equals lane unless the object is changing lanes. */
+  lx: number;
   /** Absolute distance along the road. */
   z: number;
+  /** Own speed along the road (world units/s). Positive moves with the rider, negative toward. */
+  vz: number;
+  /** Planned lane change, for movers that swerve, drift or cross. */
+  move?: LaneMove;
   done: boolean;
+}
+
+export interface LaneMove {
+  /** Starts when the object is this close ahead of the rider. */
+  trigger: number;
+  /** 'warn' flashes an indicator before the move. */
+  phase: 'wait' | 'warn' | 'move' | 'done';
+  warnLeft: number;
+  warnTicks: number;
+  to: number;
+  /** Lanes per second. */
+  laneSpeed: number;
+}
+
+/** A street dog chasing the rider. It runs a little faster than the rider's cruising speed. */
+export interface DogChase {
+  ticksLeft: number;
+  /** Distance behind the rider. At 0 it catches up. */
+  gap: number;
 }
 
 export type SimEvent =
   | { type: 'coin' }
   | { type: 'parcel' }
   | { type: 'deliver'; parcels: number; coins: number; combo: number }
-  | { type: 'hit'; kind: ObstacleKind; lostParcel: boolean }
+  | { type: 'hit'; kind: HitKind; lostParcel: boolean }
+  | { type: 'bump'; kind: 'hole' | 'bump' }
+  | { type: 'brake' }
+  | { type: 'dog'; phase: 'start' | 'gone' }
   | { type: 'jump' }
   | { type: 'won' }
   | { type: 'lost' }
@@ -41,6 +71,9 @@ export interface RunState {
   lx: number;
   /** Ticks left in the current jump, 0 when on the ground. */
   jumpT: number;
+  /** True while the player holds the brake. */
+  braking: boolean;
+  dog: DogChase | null;
   invulnT: number;
   hearts: number;
   carry: number;
@@ -78,6 +111,8 @@ export function createRun(cfg: LevelConfig, seed: number, opts: RunOptions = {})
     lane: 1,
     lx: 1,
     jumpT: 0,
+    braking: false,
+    dog: null,
     invulnT: 0,
     hearts: tuning.hearts,
     carry: 0,
@@ -149,9 +184,58 @@ export function airborne(s: RunState): boolean {
 }
 
 export function addObj(s: RunState, kind: ObjKind, lane: number, z: number): Obj {
-  const o: Obj = { id: s.nextId++, kind, lane, z, done: false };
+  const o: Obj = { id: s.nextId++, kind, lane, lx: lane, z, vz: 0, done: false };
   s.objs.push(o);
   return o;
+}
+
+/** Moving threats still ahead of the rider. */
+export const moversAhead = (s: RunState) => s.objs.filter((o) => isMover(o.kind) && !o.done && o.z > s.dist).length;
+
+/** Place a moving threat. Its lane change, if any, is decided now, so replays match. */
+export function addMover(s: RunState, rng: Rng, kind: MoverKind, lane: number, z: number): Obj {
+  const spec = s.tuning.movers[kind] as { vz: number; trigger: number; warnTicks: number; laneSpeed: number; driftChance?: number };
+  let from = lane;
+  let to = lane;
+  if (kind === 'walker') {
+    from = rng.next() < 0.5 ? 0 : 2;
+    to = 2 - from;
+  } else if (spec.driftChance !== undefined && rng.next() < spec.driftChance) {
+    to = lane === 1 ? (rng.next() < 0.5 ? 0 : 2) : 1;
+  }
+  const o = addObj(s, kind, from, z);
+  o.vz = spec.vz;
+  if (to !== from) {
+    o.move = { trigger: spec.trigger, phase: 'wait', warnLeft: 0, warnTicks: spec.warnTicks, to, laneSpeed: spec.laneSpeed };
+  }
+  return o;
+}
+
+export function startDog(s: RunState) {
+  s.dog = { ticksLeft: s.tuning.dogTicks, gap: s.tuning.dogStartGap };
+  s.events.push({ type: 'dog', phase: 'start' });
+}
+
+function moveObjects(s: RunState, dt: number) {
+  for (const o of s.objs) {
+    if (o.done) continue;
+    if (o.vz) o.z += o.vz * dt;
+    const m = o.move;
+    if (!m || m.phase === 'done') continue;
+    if (m.phase === 'wait') {
+      if (o.z - s.dist > m.trigger) continue;
+      m.phase = m.warnTicks > 0 ? 'warn' : 'move';
+      m.warnLeft = m.warnTicks;
+    }
+    if (m.phase === 'warn') {
+      if (--m.warnLeft > 0) continue;
+      m.phase = 'move';
+    }
+    const stepLanes = m.laneSpeed * dt;
+    o.lx = o.lx < m.to ? Math.min(m.to, o.lx + stepLanes) : Math.max(m.to, o.lx - stepLanes);
+    if (o.lx === m.to) m.phase = 'done';
+    o.lane = Math.round(o.lx);
+  }
 }
 
 function applyCommand(s: RunState, cmd: Command) {
@@ -160,6 +244,12 @@ function applyCommand(s: RunState, cmd: Command) {
   else if (cmd === 'jump' && s.jumpT <= 0) {
     s.jumpT = s.tuning.jumpTicks;
     s.events.push({ type: 'jump' });
+  } else if (cmd === 'brakeOn' && !s.braking && s.cfg.brake) {
+    s.braking = true;
+    s.combo = 0;
+    s.events.push({ type: 'brake' });
+  } else if (cmd === 'brakeOff') {
+    s.braking = false;
   }
 }
 
@@ -172,19 +262,43 @@ export function spawnRow(s: RunState, z: number) {
   const rng = new Rng(s.rngState);
   s.rows++;
   const lanes = rng.shuffle([0, 1, 2]);
+  const movers = (s.cfg.threats ?? []).filter((k): k is MoverKind => k !== 'dog');
   if (s.carry > 0 && s.rows % t.dropEveryRows === 0) {
     addObj(s, 'drop', lanes[0], z);
+  } else if (movers.length && rng.next() < (s.cfg.threatChance ?? 0) && moversAhead(s) < (s.cfg.maxMovers ?? 1)) {
+    // A threat row: one moving threat on its own, the reward in the open lane.
+    addMover(s, rng, rng.pick(movers), lanes[0], z);
+    addReward(s, rng, lanes[2], z);
   } else {
     const count = rng.next() < s.cfg.density ? 2 : 1;
     for (let i = 0; i < count; i++) {
       const jitter = i ? rng.range(-t.pairJitter, t.pairJitter) : 0;
       addObj(s, rng.pick(s.cfg.kinds), lanes[i], z + jitter);
     }
-    const open = lanes[2];
-    if (rng.next() < t.parcelChance && s.carry < carryCap(s)) addObj(s, 'parcel', open, z + t.parcelOffset);
-    else for (let c = 0; c < t.coinsPerRow; c++) addObj(s, 'coin', open, z + t.coinOffset + c * t.coinSpacing);
+    addReward(s, rng, lanes[2], z);
   }
+  const dogChance = s.cfg.dogChance ?? 0;
+  if (dogChance > 0 && !s.dog && s.tick >= t.dogMinTick && rng.next() < dogChance) startDog(s);
   s.rngState = rng.state;
+}
+
+function addReward(s: RunState, rng: Rng, lane: number, z: number) {
+  const t = s.tuning;
+  if (rng.next() < t.parcelChance && s.carry < carryCap(s)) addObj(s, 'parcel', lane, z + t.parcelOffset);
+  else for (let c = 0; c < t.coinsPerRow; c++) addObj(s, 'coin', lane, z + t.coinOffset + c * t.coinSpacing);
+}
+
+/** A crash: lose a heart and a carried parcel, slow down, and blink for a moment. */
+function crash(s: RunState, kind: HitKind) {
+  const t = s.tuning;
+  s.hearts--;
+  s.invulnT = t.invulnTicks;
+  s.combo = 0;
+  s.v *= t.hitSlow;
+  const lostParcel = s.carry > 0;
+  if (lostParcel) s.carry--;
+  s.events.push({ type: 'hit', kind, lostParcel });
+  if (s.hearts <= 0) s.status = 'lost';
 }
 
 function collide(s: RunState, o: Obj) {
@@ -209,18 +323,39 @@ function collide(s: RunState, o: Obj) {
     s.delivered++;
     s.coins += coins;
     s.events.push({ type: 'deliver', parcels: 1, coins, combo: s.combo });
+    if (s.dog) {
+      // The dog gives up at the doorstep.
+      s.dog = null;
+      s.events.push({ type: 'dog', phase: 'gone' });
+    }
     if (s.cfg.goal !== undefined && s.delivered >= s.cfg.goal) s.status = 'won';
+  } else if (o.kind === 'hole' || o.kind === 'bump') {
+    // Jump it, or ride over it and lose most of your speed. No heart lost.
+    if (airborne(s)) return;
+    o.done = true;
+    s.v = Math.min(s.v, targetSpeed(s) * t.bumpSlow);
+    s.combo = 0;
+    s.events.push({ type: 'bump', kind: o.kind });
   } else {
     if (s.invulnT > 0) return;
-    if (JUMPABLE.has(o.kind) && airborne(s)) return;
     o.done = true;
-    s.hearts--;
-    s.invulnT = t.invulnTicks;
-    s.combo = 0;
-    const lostParcel = s.carry > 0;
-    if (lostParcel) s.carry--;
-    s.events.push({ type: 'hit', kind: o.kind, lostParcel });
-    if (s.hearts <= 0) s.status = 'lost';
+    crash(s, o.kind);
+  }
+}
+
+function chaseDog(s: RunState, dt: number) {
+  const d = s.dog;
+  if (!d) return;
+  const t = s.tuning;
+  d.gap = Math.min(t.dogStartGap, d.gap + (s.v - targetSpeed(s) * t.dogPace) * dt);
+  d.ticksLeft--;
+  if (d.gap <= 0) {
+    s.dog = null;
+    if (s.invulnT > 0) s.events.push({ type: 'dog', phase: 'gone' });
+    else crash(s, 'dog');
+  } else if (d.ticksLeft <= 0) {
+    s.dog = null;
+    s.events.push({ type: 'dog', phase: 'gone' });
   }
 }
 
@@ -231,6 +366,7 @@ function tryRevive(s: RunState, payCoins: boolean) {
   if (payCoins) s.coins -= s.tuning.reviveCost;
   s.revived = true;
   s.status = 'running';
+  s.dog = null;
   s.hearts = s.tuning.reviveHearts;
   s.invulnT = s.tuning.invulnTicks;
   for (const o of s.objs) {
@@ -249,11 +385,13 @@ export function step(s: RunState, cmds: readonly Command[] = []) {
   if (s.status !== 'running') return;
   const t = s.tuning;
   const dt = 1 / t.tickRate;
-  for (const c of cmds) if (c === 'left' || c === 'right' || c === 'jump') applyCommand(s, c);
+  for (const c of cmds) if (c !== 'revive' && c !== 'reviveCoins') applyCommand(s, c);
 
-  const target = targetSpeed(s);
-  const dv = t.speedAccel * dt;
-  s.v = s.v < target ? Math.min(target, s.v + dv) : Math.max(target, s.v - dv);
+  // Ease toward the target: gently for a speed step-up, quickly back after a brake or bump.
+  const braking = s.braking;
+  const target = targetSpeed(s) * (braking ? t.brakeFactor : 1);
+  if (s.v < target) s.v = Math.min(target, s.v + (s.v < target * 0.92 ? t.recoverAccel : t.speedAccel) * dt);
+  else s.v = Math.max(target, s.v - (braking ? t.brakeDecel : t.speedAccel) * dt);
   s.dist += s.v * dt;
   s.tick++;
   const follow = s.cfg.rain ? t.rainLaneFollow : t.laneFollow;
@@ -267,8 +405,12 @@ export function step(s: RunState, cmds: readonly Command[] = []) {
     s.nextRowAt = s.dist + Math.max(t.rowGapMin, t.rowGapStart - seconds(s) * t.rowGapShrinkPerSec);
   }
 
+  moveObjects(s, dt);
+  chaseDog(s, dt);
+
   const myLane = Math.round(s.lx);
   for (const o of s.objs) {
+    if (s.status !== 'running') break;
     if (o.done || o.lane !== myLane || Math.abs(o.z - s.dist) > t.hitWindow) continue;
     collide(s, o);
     if (s.status !== 'running') break;

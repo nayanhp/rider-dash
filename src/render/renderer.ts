@@ -92,7 +92,17 @@ export class Renderer {
           navigator.vibrate?.(80);
         }
         this.burst(x, g.yP - 40, '#FF5A4E', 16);
-        this.popup(x, py, e.lostParcel ? 'Parcel dropped!' : 'Ouch!', '#C23A30');
+        const what = e.kind === 'dog' ? 'The dog caught you!' : e.lostParcel ? 'Parcel dropped!' : 'Ouch!';
+        this.popup(x, py, what, '#C23A30');
+      } else if (e.type === 'bump') {
+        if (!this.reduceMotion) {
+          this.shake = Math.max(this.shake, 0.15);
+          navigator.vibrate?.(30);
+        }
+        this.popup(x, py, e.kind === 'hole' ? 'Pothole! Slowed down' : 'Speed breaker! Slowed down', '#D97A00');
+      } else if (e.type === 'dog') {
+        if (e.phase === 'start') this.popup(x, py - 30, 'Dog chasing! Keep your speed up', '#C23A30');
+        else this.popup(x, py - 30, 'Lost the dog!', '#3A9A1E');
       } else if (e.type === 'revive') {
         this.popup(x, py, 'Revived!', '#3A9A1E');
         this.burst(x, py + 20, '#5DD039', 18);
@@ -242,7 +252,7 @@ export class Renderer {
     const objs = s.objs.filter((o) => o.z - s.dist < DRAW_DIST && (!o.done || o.kind === 'drop')).sort((a, b) => b.z - a.z);
     for (const o of objs) {
       const rz = o.z - s.dist;
-      const p = this.proj(rz, o.lane);
+      const p = this.proj(rz, o.lx);
       const lw = this.laneWidth(p.s);
       switch (o.kind) {
         case 'drop': {
@@ -272,14 +282,26 @@ export class Renderer {
         case 'bump':
           drawSprite(c, 'bump', p.x, p.y, SPRITES.bump.draw * lw);
           break;
+        case 'walker':
+          drawSprite(c, 'walker', p.x, p.y, SPRITES.walker.draw * lw);
+          break;
+        case 'scooter':
+          drawSprite(c, 'scooter', p.x, p.y, SPRITES.scooter.draw * lw);
+          break;
         default: {
-          const id: SpriteId = o.kind === 'auto' ? 'auto' : o.kind === 'car' ? 'car' : 'cow';
+          const id: SpriteId = o.kind === 'auto' || o.kind === 'autoSwerve' ? 'auto' : o.kind === 'car' ? 'car' : 'cow';
           drawSprite(c, id, p.x, p.y, SPRITES[id].draw * lw);
         }
+      }
+      // An indicator flashes before a swerve or a drift.
+      if (o.move && (o.move.phase === 'warn' || o.move.phase === 'move') && o.kind !== 'walker') {
+        this.indicator(p.x, p.y - 0.95 * lw, Math.sign(o.move.to - o.lx), lw, s.tick);
       }
     }
 
     this.drawRider(s, g.yP);
+    if (s.braking) this.drawBrakeLight(s, g.yP);
+    if (s.dog) this.drawDog(s, g.yP);
 
     if (night) {
       c.fillStyle = 'rgba(10,12,40,.25)';
@@ -293,6 +315,52 @@ export class Renderer {
       c.fillRect(-20, -20, W + 40, H + 40);
     }
     c.restore();
+  }
+
+  /** Red glow at the tail light while the brake is held. */
+  private drawBrakeLight(s: RunState, yP: number) {
+    const c = this.ctx;
+    const x = this.proj(0, s.lx).x;
+    const lw = this.laneWidth(1);
+    const y = yP - lw * 0.22;
+    const g = c.createRadialGradient(x, y, 0, x, y, lw * 0.3);
+    g.addColorStop(0, 'rgba(255,70,60,0.85)');
+    g.addColorStop(1, 'rgba(255,70,60,0)');
+    c.fillStyle = g;
+    c.fillRect(x - lw * 0.3, y - lw * 0.3, lw * 0.6, lw * 0.6);
+  }
+
+  /** A flashing orange arrow pointing the way a vehicle is about to move. */
+  private indicator(x: number, y: number, dir: number, lw: number, tick: number) {
+    if (dir === 0 || Math.floor(tick / 8) % 2) return;
+    const c = this.ctx;
+    const r = Math.max(6, lw * 0.14);
+    c.save();
+    c.translate(x + dir * lw * 0.32, y);
+    c.scale(dir, 1);
+    c.fillStyle = '#FF9F1A';
+    c.strokeStyle = '#2A2F5A';
+    c.lineWidth = Math.max(1.5, r * 0.25);
+    c.beginPath();
+    c.moveTo(-r, -r * 0.7);
+    c.lineTo(r, 0);
+    c.lineTo(-r, r * 0.7);
+    c.closePath();
+    c.fill();
+    c.stroke();
+    c.restore();
+  }
+
+  /** The chasing dog, at the bottom of the screen behind the rider. Closer means bigger and higher. */
+  private drawDog(s: RunState, yP: number) {
+    const d = s.dog;
+    if (!d) return;
+    const close = 1 - Math.max(0, Math.min(1, d.gap / s.tuning.dogStartGap));
+    const lw = this.laneWidth(1);
+    const x = this.proj(0, s.lx).x - lw * 0.55;
+    const bounce = this.reduceMotion ? 0 : Math.abs(Math.sin(s.tick * 0.35)) * 6;
+    const y = this.H + 10 - close * (this.H - yP + 30) - bounce;
+    drawSprite(this.ctx, 'dog', x, y, SPRITES.dog.draw * lw * (0.8 + close * 0.4));
   }
 
   private drawRider(s: RunState, yP: number) {

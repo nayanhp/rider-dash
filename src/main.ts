@@ -191,12 +191,15 @@ function applyHold(resume = false) {
       input.enabled = false;
       input.drain();
     } else {
-      if (!playing) {
+      const wasPaused = !playing;
+      if (wasPaused) {
         last = performance.now();
         acc = 0;
       }
       playing = true;
       input.drain();
+      // A brake held when the run paused is not still held now.
+      if (wasPaused) input.releaseBrake();
       if (resume) {
         input.enabled = false;
         requestAnimationFrame(() => {
@@ -814,6 +817,7 @@ const SFX: Partial<Record<SimEvent['type'], Sfx>> = {
   parcel: 'parcel',
   deliver: 'drop',
   hit: 'hit',
+  bump: 'hit',
   won: 'clear',
 };
 
