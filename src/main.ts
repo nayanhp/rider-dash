@@ -24,7 +24,7 @@ import unlockUrl from './sprites/badge-city-unlock.svg';
 import { CITIES, ENDLESS, LEVELS, type City, type LevelConfig } from './sim/config';
 import { RunPayout, reloadWallet, walletCoins } from './wallet';
 import { cityCleared, cityOf, cityStars, cityUnlocked, currentLevel, isUnlocked, nextLevel, recordStars, reloadProgress, starsFor } from './progress';
-import { beatBest, createRun, isEndless, meters, reviveStillOpen, score, seconds, step, type InputLog, type RunState, type SimEvent } from './sim/run';
+import { beatBest, carryCap, createRun, isEndless, meters, reviveStillOpen, score, seconds, step, type InputLog, type RunState, type SimEvent } from './sim/run';
 import logoUrl from './assets/logo.png';
 import parcelUrl from './sprites/parcel.svg';
 import hudCoinUrl from './sprites/hud-coin.svg';
@@ -765,7 +765,9 @@ function updateHud() {
   hud.right.innerHTML = `${ico(hudCoinUrl)} ${coins}`;
   if (coinPop) replayClass(hud.right, 'pop');
   if (heartLost && !renderer.reduceMotion) replayClass(hud.root, 'shake');
-  hud.slots.innerHTML = [0, 1, 2].map((i) => ico(i < carry ? slotFullUrl : slotEmptyUrl, 'slot')).join('');
+  // One slot per parcel the rider may hold now: never more than the goal still needs.
+  const slots = Math.max(carry, carryCap(run));
+  hud.slots.innerHTML = Array.from({ length: slots }, (_, i) => ico(i < carry ? slotFullUrl : slotEmptyUrl, 'slot')).join('');
 }
 
 function replayClass(el: HTMLElement, cls: string) {

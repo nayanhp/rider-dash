@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.0 — 2026-10-16 · One parcel per home, speed per drop-off
+
+- A DROP zone takes one parcel. Carrying three means three drop-offs. Each drop-off pays
+  10 coins × the combo (up to ×3). A DROP zone you reach with an empty box stays on the road.
+- You can never carry more parcels than the goal still needs: a 2-parcel level gives a box of
+  2, and after one drop-off, 1. Extra parcels stay on the road. The HUD shows that many slots.
+- Speed in a level no longer climbs with time. It starts at `v0` and steps up after each
+  drop-off toward `v1`, easing in at `speedAccel` (90 units/s²) rather than jumping.
+  Endless still speeds up over time and adds `endlessSpeedPerDrop` (12) per drop-off, capped at `v1`.
+- BALANCE.md regenerated: bot clear rate 63% (was 59%), average winning run 62 s.
+- 68 tests.
+
 ## 0.6.1 — 2026-10-16 · Fast live link, coin wallet
 
 - The CrazyGames SDK now starts only inside the CrazyGames iframe or on a local dev host

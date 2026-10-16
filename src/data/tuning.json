@@ -29,5 +29,7 @@
   "metersDiv": 10,
   "reviveCost": 30,
   "reviveHearts": 1,
-  "coinDoubleMultiplier": 2
+  "coinDoubleMultiplier": 2,
+  "speedAccel": 90,
+  "endlessSpeedPerDrop": 12
 }

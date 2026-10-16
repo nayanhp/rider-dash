@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ENDLESS, LEVELS, TUNING } from './config';
 import { Rng } from './rng';
-import { addObj, airborne, beatBest, createRun, replay, reviveStillOpen, score, speed, spawnRow, step, type Command, type InputLog } from './run';
+import { addObj, airborne, beatBest, carryCap, createRun, targetSpeed, replay, reviveStillOpen, score, speed, spawnRow, step, type Command, type InputLog } from './run';
 
 const L1 = LEVELS[0];
 const ALL_KINDS = LEVELS[3];
@@ -79,13 +79,27 @@ describe('spawner', () => {
 });
 
 describe('speed', () => {
-  it('ramps from v0 to v1 and then holds', () => {
+  it('holds steady until a drop-off, then steps up toward v1', () => {
     const s = bare();
     expect(speed(s)).toBe(L1.v0);
-    s.tick = Math.round(L1.ramp * TUNING.tickRate);
-    expect(speed(s)).toBe(L1.v1);
-    s.tick *= 3;
-    expect(speed(s)).toBe(L1.v1);
+    for (let i = 0; i < 600; i++) step(s); // ten seconds, no deliveries
+    expect(speed(s)).toBe(L1.v0);
+    s.delivered = 1; // L1 goal is 2: halfway
+    expect(targetSpeed(s)).toBe(L1.v0 + (L1.v1 - L1.v0) / 2);
+    step(s);
+    expect(speed(s)).toBeGreaterThan(L1.v0);
+    expect(speed(s)).toBeLessThan(targetSpeed(s)); // eases in, no sudden jump
+    for (let i = 0; i < 120; i++) step(s);
+    expect(speed(s)).toBe(targetSpeed(s));
+  });
+
+  it('in endless, ramps with time and adds a bump per drop-off, capped at v1', () => {
+    const s = createRun(ENDLESS, 1, { autoSpawn: false });
+    const base = targetSpeed(s);
+    s.delivered = 2;
+    expect(targetSpeed(s)).toBe(base + 2 * TUNING.endlessSpeedPerDrop);
+    s.tick = Math.round(ENDLESS.ramp * TUNING.tickRate);
+    expect(targetSpeed(s)).toBe(ENDLESS.v1);
   });
 });
 
@@ -103,23 +117,45 @@ describe('lanes', () => {
 
 describe('pickups and deliveries', () => {
   it('collects parcels up to the carry limit', () => {
-    const s = bare();
+    const s = bare(LEVELS.at(-1)); // goal 10, so the box limit of 3 applies
     for (let i = 0; i < 5; i++) addObj(s, 'parcel', 1, 200 + i * 100);
     rideTo(s, 700);
     expect(s.carry).toBe(TUNING.maxCarry);
   });
 
-  it('delivers everything carried at a drop zone, with a combo bonus', () => {
+  it('never carries more parcels than the goal still needs', () => {
+    const s = bare(); // L1 goal is 2
+    expect(carryCap(s)).toBe(2);
+    for (let i = 0; i < 3; i++) addObj(s, 'parcel', 1, 200 + i * 100);
+    rideTo(s, 500);
+    expect(s.carry).toBe(2);
+    expect(s.objs.filter((o) => o.kind === 'parcel').length).toBe(1); // the third stays on the road
+    s.delivered = 1;
+    expect(carryCap(s)).toBe(1);
+  });
+
+  it('drops one parcel per home, with a combo bonus', () => {
     const s = bare();
     addObj(s, 'parcel', 1, 200);
-    addObj(s, 'drop', 1, 400);
-    addObj(s, 'parcel', 1, 600);
-    addObj(s, 'parcel', 1, 700);
+    addObj(s, 'parcel', 1, 300);
+    addObj(s, 'drop', 1, 500);
+    rideTo(s, 600);
+    expect(s.delivered).toBe(1);
+    expect(s.carry).toBe(1);
+    expect(s.status).toBe('running');
     addObj(s, 'drop', 1, 900);
     rideTo(s, 1000);
-    expect(s.delivered).toBe(3); // passes L1's goal of 2, so the run is won
+    expect(s.delivered).toBe(2);
     expect(s.status).toBe('won');
-    expect(s.coins).toBe(1 * 10 * 1 + 2 * 10 * 2);
+    expect(s.coins).toBe(10 * 1 + 10 * 2);
+  });
+
+  it('an empty box leaves the drop zone for later', () => {
+    const s = bare();
+    const drop = addObj(s, 'drop', 1, 200);
+    rideTo(s, 300);
+    expect(drop.done).toBe(false);
+    expect(s.delivered).toBe(0);
   });
 
   it('collects coins in your lane only', () => {

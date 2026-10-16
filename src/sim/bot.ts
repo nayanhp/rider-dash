@@ -3,7 +3,7 @@
 // prefers parcels and DROP zones when the lane is safe. Commands wait a fixed number of
 // ticks, and a lane change is queued only once, so the delay cannot stack into a swerve.
 import { JUMPABLE, type LevelConfig } from './config';
-import { createRun, speed, step, type Command, type Obj, type RunState } from './run';
+import { carryCap, createRun, speed, step, type Command, type Obj, type RunState } from './run';
 
 /** Ticks between a decision and the command reaching the sim. */
 export const REACTION_TICKS = 8;
@@ -54,7 +54,7 @@ function decide(s: RunState, queue: readonly (Command | null)[]): Command | null
   const parcels = ahead.filter((o) => o.kind === 'parcel').sort((a, b) => a.z - b.z);
   const pickOpen = (objs: Obj[]) => objs.find((o) => !blocked(o.lane)) ?? objs[0];
   if (s.carry > 0 && drops.length) desired = pickOpen(drops).lane;
-  else if (s.carry < t.maxCarry && parcels.length) desired = pickOpen(parcels).lane;
+  else if (s.carry < carryCap(s) && parcels.length) desired = pickOpen(parcels).lane;
   if (blocked(desired)) {
     const open = [0, 1, 2].filter((lane) => !blocked(lane));
     desired = open.length

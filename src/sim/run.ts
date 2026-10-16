@@ -34,6 +34,8 @@ export interface RunState {
   tick: number;
   /** Distance travelled. */
   dist: number;
+  /** Current speed (world units/s). Eases toward targetSpeed(), which steps up per drop-off. */
+  v: number;
   /** Target lane (0..2) and the rider's smoothed position between lanes. */
   lane: number;
   lx: number;
@@ -72,6 +74,7 @@ export function createRun(cfg: LevelConfig, seed: number, opts: RunOptions = {})
     rngState: seed >>> 0,
     tick: 0,
     dist: 0,
+    v: cfg.v0,
     lane: 1,
     lx: 1,
     jumpT: 0,
@@ -96,8 +99,25 @@ export const isEndless = (s: RunState) => s.cfg.goal === undefined;
 export const seconds = (s: RunState) => s.tick / s.tuning.tickRate;
 
 export function speed(s: RunState): number {
-  const { v0, v1, ramp } = s.cfg;
-  return v0 + (v1 - v0) * Math.min(1, seconds(s) / ramp);
+  return s.v;
+}
+
+/**
+ * The speed the rider is heading for. In a level it steps up after each drop-off, from v0
+ * at the start toward v1 at the goal. Endless still speeds up over time, and each drop-off
+ * adds a bump on top, capped at v1.
+ */
+export function targetSpeed(s: RunState): number {
+  const { v0, v1, ramp, goal } = s.cfg;
+  if (goal !== undefined) return v0 + (v1 - v0) * Math.min(1, s.delivered / goal);
+  const timed = v0 + (v1 - v0) * Math.min(1, seconds(s) / ramp);
+  return Math.min(v1, timed + s.delivered * s.tuning.endlessSpeedPerDrop);
+}
+
+/** Parcels the rider can hold right now: never more than are still needed for the goal. */
+export function carryCap(s: RunState): number {
+  const left = s.cfg.goal === undefined ? Infinity : s.cfg.goal - s.delivered;
+  return Math.max(0, Math.min(s.tuning.maxCarry, left));
 }
 
 /** A tie does not beat the saved best. */
@@ -161,7 +181,7 @@ export function spawnRow(s: RunState, z: number) {
       addObj(s, rng.pick(s.cfg.kinds), lanes[i], z + jitter);
     }
     const open = lanes[2];
-    if (rng.next() < t.parcelChance && s.carry < t.maxCarry) addObj(s, 'parcel', open, z + t.parcelOffset);
+    if (rng.next() < t.parcelChance && s.carry < carryCap(s)) addObj(s, 'parcel', open, z + t.parcelOffset);
     else for (let c = 0; c < t.coinsPerRow; c++) addObj(s, 'coin', open, z + t.coinOffset + c * t.coinSpacing);
   }
   s.rngState = rng.state;
@@ -174,20 +194,21 @@ function collide(s: RunState, o: Obj) {
     s.coins++;
     s.events.push({ type: 'coin' });
   } else if (o.kind === 'parcel') {
+    // A full box rides past the parcel and leaves it on the road.
+    if (s.carry >= carryCap(s)) return;
     o.done = true;
-    if (s.carry < t.maxCarry) {
-      s.carry++;
-      s.events.push({ type: 'parcel' });
-    }
+    s.carry++;
+    s.events.push({ type: 'parcel' });
   } else if (o.kind === 'drop') {
-    o.done = true;
+    // Each home takes one parcel. Carry more and you need more drop-offs.
     if (s.carry === 0) return;
+    o.done = true;
     s.combo++;
-    const coins = s.carry * t.coinsPerDelivery * Math.min(t.comboCap, s.combo);
-    s.delivered += s.carry;
+    const coins = t.coinsPerDelivery * Math.min(t.comboCap, s.combo);
+    s.carry--;
+    s.delivered++;
     s.coins += coins;
-    s.events.push({ type: 'deliver', parcels: s.carry, coins, combo: s.combo });
-    s.carry = 0;
+    s.events.push({ type: 'deliver', parcels: 1, coins, combo: s.combo });
     if (s.cfg.goal !== undefined && s.delivered >= s.cfg.goal) s.status = 'won';
   } else {
     if (s.invulnT > 0) return;
@@ -230,7 +251,10 @@ export function step(s: RunState, cmds: readonly Command[] = []) {
   const dt = 1 / t.tickRate;
   for (const c of cmds) if (c === 'left' || c === 'right' || c === 'jump') applyCommand(s, c);
 
-  s.dist += speed(s) * dt;
+  const target = targetSpeed(s);
+  const dv = t.speedAccel * dt;
+  s.v = s.v < target ? Math.min(target, s.v + dv) : Math.max(target, s.v - dv);
+  s.dist += s.v * dt;
   s.tick++;
   const follow = s.cfg.rain ? t.rainLaneFollow : t.laneFollow;
   s.lx += (s.lane - s.lx) * Math.min(1, dt * follow);
