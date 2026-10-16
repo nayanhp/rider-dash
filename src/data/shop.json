@@ -1,0 +1,19 @@
+{
+  "comment": "Coins are only earned by playing. unlockAfter is the global area index that must be cleared before the shop opens (4 = BTM Layout, Bengaluru area 5).",
+  "unlockAfter": 4,
+  "upgrades": {
+    "prices": [100, 250, 500, 1000, 2000],
+    "stepPerLevel": 0.2,
+    "items": [
+      { "power": "magnet", "name": "Magnet", "desc": "Pulls coins for longer" },
+      { "power": "net", "name": "Parcel net", "desc": "Scoops parcels for longer" },
+      { "power": "nitro", "name": "Nitro", "desc": "Burns for longer" },
+      { "power": "double", "name": "2× coins", "desc": "Doubles for longer" }
+    ]
+  },
+  "boosts": [
+    { "id": "helmet", "name": "Helmet", "desc": "Start with a safety helmet", "price": 75 },
+    { "id": "nitro", "name": "Nitro start", "desc": "Start with a nitro burst", "price": 60 },
+    { "id": "heart", "name": "Extra heart", "desc": "Start with 4 hearts", "price": 120 }
+  ]
+}

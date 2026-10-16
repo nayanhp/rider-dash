@@ -24,6 +24,14 @@ export function addCoins(n: number): number {
   return next;
 }
 
+/** Spend coins if the wallet holds enough. Returns false, and spends nothing, otherwise. */
+export function spendCoins(n: number): boolean {
+  const cost = Math.max(0, Math.trunc(n));
+  if (walletCoins() < cost) return false;
+  addCoins(-cost);
+  return true;
+}
+
 /**
  * What one run has paid into the wallet. A run can end, be revived (a coin revive spends
  * in-run coins), and end again; settling each time pays only the difference, so the

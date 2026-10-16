@@ -85,6 +85,9 @@ export interface RunState {
   shield: boolean;
   /** The area's new power-up has been placed once. */
   powerTaught: boolean;
+  /** Most hearts this run can hold: 3, or 4 with the extra-heart boost. */
+  maxHearts: number;
+  mods: RunMods;
   invulnT: number;
   hearts: number;
   carry: number;
@@ -103,15 +106,31 @@ export interface RunState {
   events: SimEvent[];
 }
 
+/**
+ * What the player brought into this run from the shop. Part of the run's inputs, so a
+ * replay with the same mods gives the same result.
+ */
+export interface RunMods {
+  /** Duration multiplier per timed power-up, from upgrades. 1 = base. */
+  powerScale?: Partial<Record<TimedPower, number>>;
+  /** Pre-run boosts. */
+  startHelmet?: boolean;
+  startNitro?: boolean;
+  extraHeart?: boolean;
+}
+
 export interface RunOptions {
   tuning?: Tuning;
+  mods?: RunMods;
   /** Turn off the spawner so tests can place objects by hand. */
   autoSpawn?: boolean;
 }
 
 export function createRun(cfg: LevelConfig, seed: number, opts: RunOptions = {}): RunState {
   const tuning = opts.tuning ?? TUNING;
-  return {
+  const mods = opts.mods ?? {};
+  const maxHearts = tuning.hearts + (mods.extraHeart ? tuning.extraHeartBoost : 0);
+  const s: RunState = {
     cfg,
     tuning,
     seed: seed >>> 0,
@@ -128,7 +147,9 @@ export function createRun(cfg: LevelConfig, seed: number, opts: RunOptions = {})
     shield: false,
     powerTaught: false,
     invulnT: 0,
-    hearts: tuning.hearts,
+    hearts: maxHearts,
+    maxHearts,
+    mods,
     carry: 0,
     delivered: 0,
     coins: 0,
@@ -142,6 +163,14 @@ export function createRun(cfg: LevelConfig, seed: number, opts: RunOptions = {})
     revived: false,
     events: [],
   };
+  if (mods.startHelmet) s.shield = true;
+  if (mods.startNitro) s.powers.nitro = powerTicks(s, 'nitro');
+  return s;
+}
+
+/** A timed power-up's length in ticks, after shop upgrades. */
+export function powerTicks(s: RunState, p: TimedPower): number {
+  return Math.round(s.tuning.powerTicks[p] * (s.mods.powerScale?.[p] ?? 1));
 }
 
 export const isEndless = (s: RunState) => s.cfg.goal === undefined;
@@ -303,13 +332,13 @@ export function spawnRow(s: RunState, z: number) {
 
 /** Power-ups that may be placed right now. A heart only shows up after you've lost one. */
 function placeablePowers(s: RunState): PowerKind[] {
-  return (s.cfg.powers ?? []).filter((p) => p !== 'heart' || s.hearts < s.tuning.hearts);
+  return (s.cfg.powers ?? []).filter((p) => p !== 'heart' || s.hearts < s.maxHearts);
 }
 
 function addReward(s: RunState, rng: Rng, lane: number, z: number) {
   const t = s.tuning;
   const teach = s.cfg.teachPower;
-  if (teach && !s.powerTaught && s.rows >= t.powerTeachRow && (teach !== 'heart' || s.hearts < t.hearts)) {
+  if (teach && !s.powerTaught && s.rows >= t.powerTeachRow && (teach !== 'heart' || s.hearts < s.maxHearts)) {
     s.powerTaught = true;
     addPower(s, teach, lane, z + t.parcelOffset);
     return;
@@ -330,10 +359,9 @@ export function addPower(s: RunState, power: PowerKind, lane: number, z: number)
 }
 
 function grantPower(s: RunState, p: PowerKind) {
-  const t = s.tuning;
   if (p === 'helmet') s.shield = true;
-  else if (p === 'heart') s.hearts = Math.min(t.hearts, s.hearts + 1);
-  else s.powers[p] = t.powerTicks[p];
+  else if (p === 'heart') s.hearts = Math.min(s.maxHearts, s.hearts + 1);
+  else s.powers[p] = powerTicks(s, p);
   s.events.push({ type: 'power', kind: p });
 }
 

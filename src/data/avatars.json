@@ -1,14 +1,29 @@
 {
+  "comment": "Options without a price or reward are free. price is in coins. reward names the city whose last area unlocks it.",
   "default": { "jacket": "red", "helmet": "yellow", "skin": "medium" },
   "jacket": [
     { "id": "red", "name": "Kerb red", "color": "#FF5A4E" },
     { "id": "teal", "name": "Teal", "color": "#2BB8A8" },
-    { "id": "indigo", "name": "Indigo", "color": "#4A5BD9" }
+    { "id": "indigo", "name": "Indigo", "color": "#4A5BD9" },
+    { "id": "orange", "name": "Marigold", "color": "#FF9F1A", "price": 150 },
+    { "id": "green", "name": "Leaf green", "color": "#5DD039", "price": 200 },
+    { "id": "purple", "name": "Purple", "color": "#8E44FF", "price": 300 },
+    { "id": "black", "name": "Night black", "color": "#2A2F5A", "price": 500 },
+    { "id": "raincoat", "name": "Mumbai raincoat", "color": "#F2C230", "reward": "mumbai" },
+    { "id": "maroon", "name": "Delhi winter maroon", "color": "#8A2A3B", "reward": "delhi" },
+    { "id": "monsoon", "name": "Pune monsoon green", "color": "#2E8B57", "reward": "pune" },
+    { "id": "kite", "name": "Ahmedabad kite pink", "color": "#FF5FA2", "reward": "ahmedabad" }
   ],
   "helmet": [
     { "id": "yellow", "name": "Parcel yellow", "color": "#FFCC2E" },
     { "id": "white", "name": "White", "color": "#F5F5F5" },
-    { "id": "magenta", "name": "Magenta", "color": "#E85A9B" }
+    { "id": "magenta", "name": "Magenta", "color": "#E85A9B" },
+    { "id": "sky", "name": "Sky blue", "color": "#4FB3F6", "price": 150 },
+    { "id": "lime", "name": "Lime", "color": "#B6E32C", "price": 250 },
+    { "id": "chrome", "name": "Chrome", "color": "#C9CED6", "price": 600 },
+    { "id": "hardhat", "name": "Hyderabad hard hat", "color": "#FF7A1A", "reward": "hyderabad" },
+    { "id": "marina", "name": "Chennai marina blue", "color": "#1F6FB2", "reward": "chennai" },
+    { "id": "taxi", "name": "Kolkata taxi yellow", "color": "#FFD400", "reward": "kolkata" }
   ],
   "skin": [
     { "id": "light", "name": "Light", "color": "#F0C8A0" },

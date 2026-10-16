@@ -78,5 +78,6 @@
   "magnetReach": 320,
   "netReach": 240,
   "nitroBoost": 1.45,
-  "powerTeachRow": 3
+  "powerTeachRow": 3,
+  "extraHeartBoost": 1
 }

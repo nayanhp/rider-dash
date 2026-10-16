@@ -1,5 +1,6 @@
 import './style.css';
-import { avatarChoice, colorsFor, reloadAvatar, setAvatarPart, AVATAR_OPTIONS, type AvatarPart } from './avatar';
+import { avatarChoice, colorsFor, reloadAvatar, setAvatarPart, AVATAR_OPTIONS, type AvatarOption, type AvatarPart } from './avatar';
+import { BOOSTS, MAX_UPGRADE, UPGRADES, boostCost, buyLook, buyUpgrade, claimCityRewards, modsForRun, nextUpgradePrice, ownsLook, reloadShop, shopOpen, shopOpensAt, upgradeLevel, type BoostId } from './shop';
 import { attachDebug } from './debug';
 import { hintFor } from './hint';
 import { Input } from './input';
@@ -25,7 +26,7 @@ import unlockUrl from './sprites/badge-city-unlock.svg';
 import { CITIES, ENDLESS, LEVELS, type City, type LevelConfig, type PowerKind, type TimedPower } from './sim/config';
 import { RunPayout, reloadWallet, walletCoins } from './wallet';
 import { cityCleared, cityOf, cityStars, cityUnlocked, currentLevel, isUnlocked, nextLevel, recordStars, reloadProgress, starsFor } from './progress';
-import { beatBest, carryCap, createRun, isEndless, meters, reviveStillOpen, score, seconds, step, type InputLog, type RunState, type SimEvent } from './sim/run';
+import { beatBest, carryCap, createRun, powerTicks, isEndless, meters, reviveStillOpen, score, seconds, step, type InputLog, type RunState, type SimEvent } from './sim/run';
 import logoUrl from './assets/logo.png';
 import parcelUrl from './sprites/parcel.svg';
 import hudCoinUrl from './sprites/hud-coin.svg';
@@ -248,10 +249,11 @@ function resetHudMotion() {
   comboEl.hidden = true;
 }
 
-function startRun(cfg: LevelConfig) {
+/** Start a run. Upgrades always apply; boosts are paid for here and dropped if unaffordable. */
+function startRun(cfg: LevelConfig, boosts: readonly BoostId[] = []) {
   cancelCount();
   manualPause = false;
-  run = createRun(cfg, newSeed());
+  run = createRun(cfg, newSeed(), { mods: modsForRun(boosts) });
   log = [];
   renderer.reset(run);
   overlay.hidden = true;
@@ -336,7 +338,7 @@ function persistProgress() {
       celebrate();
     }
   } else if (run.status === 'won') {
-    recordStars(run.cfg.id, Math.max(1, run.hearts));
+    recordStars(run.cfg.id, Math.min(3, Math.max(1, run.hearts)));
   }
 }
 
@@ -346,7 +348,7 @@ function trackResult() {
   resultTracked = true;
   const cfg = run.cfg;
   const won = run.status === 'won';
-  const stars = won ? Math.max(1, run.hearts) : 0;
+  const stars = won ? Math.min(3, Math.max(1, run.hearts)) : 0;
   track({ name: 'level_end', level: cfg.id, result: won ? 'won' : 'lost', stars, time: Math.round(seconds(run)) });
   if (isEndless(run)) track({ name: 'endless_end', score: score(run) });
 }
@@ -385,14 +387,17 @@ function endRun() {
   adNote = '';
   const cfg = run.cfg;
   const won = run.status === 'won';
-  const stars = won ? Math.max(1, run.hearts) : 0;
+  const stars = won ? Math.min(3, Math.max(1, run.hearts)) : 0;
   const endless = isEndless(run);
   const bestBefore = endless ? load('best', 0) : 0;
   persistProgress();
   payout.settle(run.coins);
   const next = !endless && won ? nextLevel(cfg) : undefined;
   const newCity = !!(next && next.cityId !== cfg.cityId);
-  if (newCity) celebrate();
+  // Clearing a city's last area also gives that city's free look.
+  const cityDone = won && !endless && cityOf(cfg).levels.at(-1)?.id === cfg.id;
+  const rewards = cityDone && cfg.cityId ? claimCityRewards(cfg.cityId) : [];
+  if (newCity || rewards.length) celebrate();
   if (run.status === 'lost' && !run.revived && portal.ads.rewardedAvailable()) {
     track({ name: 'revive_offer', level: cfg.id });
   }
@@ -462,6 +467,7 @@ function endRun() {
         <span class="chip">${Math.round(seconds(run))}s</span>
       </div>
       ${newCity ? `<p class="unlock">${ico(unlockUrl, 'unlock-ico')}<span>${cfg.city} complete! <b>${next?.city}</b> unlocked.</span></p>` : ''}
+      ${rewards.map(({ option }) => `<p class="unlock"><span class="swatch-dot" style="background:${option.color}"></span><span>New look: <b>${option.name}</b>. Wear it from Rider.</span></p>`).join('')}
       ${offerAdRevive ? '<p class="small-print">Revive is optional. Watch a short video, spend coins, or retry.</p>' : ''}
       ${note}
       ${above}
@@ -609,12 +615,15 @@ function showMenu() {
       <div class="pair">
         <button class="btn blue" data-act="cities">${ico(mapUrl)} Cities</button>
         <button class="btn yellow" data-act="rider">Rider</button>
+        <button class="btn yellow" data-act="shop">${shopOpen(starsFor) ? '' : ico(lockUrl, 'lock')} Shop</button>
       </div>
     </div>`,
     {
       play: () => {
         markSeen();
-        startRun(cur);
+        // Once boosts exist, go through the briefing so they can be picked.
+        if (shopOpen(starsFor)) showBrief(cur);
+        else startRun(cur);
       },
       cities: () => {
         markSeen();
@@ -628,15 +637,77 @@ function showMenu() {
         markSeen();
         showRider();
       },
+      shop: () => {
+        markSeen();
+        showShop();
+      },
     },
+  );
+}
+
+const pips = (n: number, max: number) =>
+  `<span class="pips" aria-label="Level ${n} of ${max}">${Array.from({ length: max }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span>`;
+
+/** Upgrades to buy, what boosts cost, and a way to the rider looks. Coins only come from riding. */
+function showShop() {
+  backdrop(currentLevel());
+  const open = shopOpen(starsFor);
+  const wallet = `<span class="chip">${ico(hudCoinUrl)} ${walletCoins()}</span>`;
+  if (!open) {
+    screen(
+      `<div class="bar"><button class="btn small yellow" data-act="back" aria-label="Menu">${ico(backUrl)}</button><h2>Shop</h2><span></span></div>
+      <p class="tip">The shop opens once you clear <b>${shopOpensAt().name}</b> in ${shopOpensAt().city}. Coins you collect until then are saved.</p>
+      <p>${wallet}</p>
+      <div class="col"><button class="btn green" data-act="back" autofocus>OK</button></div>`,
+      { back: showMenu },
+    );
+    return;
+  }
+  const rows = UPGRADES.map((u) => {
+    const level = upgradeLevel(u.power);
+    const price = nextUpgradePrice(u.power);
+    const button = price === null
+      ? '<span class="maxed">Max</span>'
+      : `<button class="btn small green" data-act="up-${u.power}" ${price > walletCoins() ? 'disabled' : ''}>${price} ${ico(hudCoinUrl)}</button>`;
+    return `<div class="shop-row"><img src="${POWER_ICONS[u.power]}" alt=""><span class="shop-text"><b>${u.name}</b><small>${u.desc}</small>${pips(level, MAX_UPGRADE)}</span>${button}</div>`;
+  }).join('');
+  const boosts = BOOSTS.map((b) => `<div class="shop-row"><img src="${POWER_ICONS[b.id]}" alt=""><span class="shop-text"><b>${b.name}</b><small>${b.desc}</small></span><span class="price">${b.price} ${ico(hudCoinUrl)}</span></div>`).join('');
+  const acts: Record<string, () => void> = { back: showMenu, rider: showRider };
+  for (const u of UPGRADES) acts[`up-${u.power}`] = () => {
+    if (buyUpgrade(u.power)) play('parcel');
+    showShop();
+  };
+  screen(
+    `<div class="bar"><button class="btn small yellow" data-act="back" aria-label="Menu">${ico(backUrl)}</button><h2>Shop</h2>${wallet}</div>
+    <h3 class="shop-head">Upgrades</h3>
+    <p class="small-print">Each level makes the power-up last 20% longer.</p>
+    <div class="shop-list">${rows}</div>
+    <h3 class="shop-head">Boosts</h3>
+    <p class="small-print">Pick them on a ride's briefing. Paid when you ride, used up that run.</p>
+    <div class="shop-list">${boosts}</div>
+    <div class="col"><button class="btn blue" data-act="rider">Rider looks</button><button class="btn green" data-act="back" autofocus>Done</button></div>`,
+    acts,
+    true,
   );
 }
 
 function swatchRow(part: AvatarPart): string {
   const selected = avatarChoice()[part];
-  return AVATAR_OPTIONS[part].map((opt) =>
-    `<button type="button" class="swatch" data-part="${part}" data-id="${opt.id}" aria-pressed="${selected === opt.id}" aria-label="${opt.name}" style="background:${opt.color}"></button>`,
-  ).join('');
+  return AVATAR_OPTIONS[part].map((opt) => {
+    const mine = ownsLook(part, opt);
+    const label = mine ? opt.name : opt.reward ? `${opt.name}, unlocks with a city` : `${opt.name}, ${opt.price} coins`;
+    return `<button type="button" class="swatch${mine ? '' : ' locked'}" data-part="${part}" data-id="${opt.id}" aria-pressed="${selected === opt.id}" aria-label="${label}" style="background:${opt.color}">${mine ? '' : ico(lockUrl, 'swatch-lock')}</button>`;
+  }).join('');
+}
+
+/** The line under the swatches for a look you don't own yet: buy it, or which city gives it. */
+function lookOffer(part: AvatarPart, opt: AvatarOption): string {
+  if (opt.reward) {
+    const city = CITIES.find((c) => c.id === opt.reward)?.name ?? 'a city';
+    return `<span><b>${opt.name}</b>: clear ${city} to unlock it free.</span>`;
+  }
+  const short = (opt.price ?? 0) > walletCoins();
+  return `<span><b>${opt.name}</b></span><button class="btn small green" data-buy="${part}:${opt.id}" ${short ? 'disabled' : ''}>Buy · ${opt.price} ${ico(hudCoinUrl)}</button>${short ? `<small>You have ${walletCoins()}</small>` : ''}`;
 }
 
 function showRider() {
@@ -654,7 +725,8 @@ function showRider() {
   screen(
     `<div class="bar"><button class="btn small yellow" data-act="back" aria-label="Menu">${ico(backUrl)}</button><h2>Your rider</h2><span></span></div>
     <img class="rider-preview" alt="Your rider, from the front" width="${PICKER_DRAW_PX}" height="${PICKER_DRAW_PX * 160 / 128}" style="width:${PICKER_DRAW_PX}px">
-    <p class="small-print">Jacket, helmet and skin. The scooter stays red.</p>
+    <p class="small-print">Jacket, helmet and skin. The scooter stays red. ${ico(hudCoinUrl)} ${walletCoins()}</p>
+    <div class="offer" hidden></div>
     <fieldset class="part"><legend>Jacket</legend><div class="swatches">${swatchRow('jacket')}</div></fieldset>
     <fieldset class="part"><legend>Helmet</legend><div class="swatches">${swatchRow('helmet')}</div></fieldset>
     <fieldset class="part"><legend>Skin</legend><div class="swatches">${swatchRow('skin')}</div></fieldset>
@@ -666,6 +738,22 @@ function showRider() {
       const part = b.dataset.part as AvatarPart;
       const id = b.dataset.id;
       if (!id) return;
+      const opt = AVATAR_OPTIONS[part].find((o) => o.id === id);
+      if (!opt) return;
+      const offer = overlay.querySelector<HTMLElement>('.offer');
+      if (!ownsLook(part, opt)) {
+        if (!offer) return;
+        offer.innerHTML = lookOffer(part, opt);
+        offer.hidden = false;
+        offer.querySelector<HTMLButtonElement>('[data-buy]')?.addEventListener('click', () => {
+          if (!buyLook(part, opt)) return;
+          play('parcel');
+          setAvatarPart(part, id);
+          showRider();
+        });
+        return;
+      }
+      if (offer) offer.hidden = true;
       setAvatarPart(part, id);
       paint();
     };
@@ -732,11 +820,43 @@ function showBrief(l: LevelConfig) {
     <p class="goal">Deliver <b>${l.goal}</b> parcels</p>
     ${badges ? `<p class="badges">${badges}</p>` : ''}
     <div class="tip">${l.tip}</div>
-    <p class="small-print">Lose all 3 hearts and the run ends. Finish with more hearts for more stars.</p>
+    ${boostPicker()}
+    <p class="small-print">Lose all your hearts and the run ends. Finish with more hearts for more stars.</p>
     <div class="row"><button class="btn yellow" data-act="back">${ico(backUrl)} Areas</button>
     <button class="btn green" data-act="go" autofocus>${ico(playUrl)} Ride</button></div>`,
-    { back: () => showAreas(cityOf(l)), go: () => startRun(l) },
+    { back: () => showAreas(cityOf(l)), go: () => startRun(l, [...picked]) },
   );
+  wireBoosts();
+}
+
+/** Boosts chosen on the current briefing. Cleared each time a briefing opens. */
+let picked = new Set<BoostId>();
+
+function boostPicker(): string {
+  picked = new Set();
+  if (!shopOpen(starsFor)) return '';
+  const chips = BOOSTS.map((b) =>
+    `<button type="button" class="boost" data-boost="${b.id}" aria-pressed="false" ${b.price > walletCoins() ? 'disabled' : ''}>
+      <img src="${POWER_ICONS[b.id]}" alt=""><span>${b.name}</span><small>${b.price} ${ico(hudCoinUrl)}</small></button>`).join('');
+  return `<div class="boosts"><p class="small-print">Boosts for this ride · you have ${walletCoins()} ${ico(hudCoinUrl)}</p><div class="boost-row">${chips}</div></div>`;
+}
+
+function wireBoosts() {
+  overlay.querySelectorAll<HTMLButtonElement>('[data-boost]').forEach((b) => {
+    b.onclick = () => {
+      const id = b.dataset.boost as BoostId;
+      if (picked.has(id)) picked.delete(id);
+      else picked.add(id);
+      // Only allow a pick the wallet can still cover.
+      if (boostCost([...picked]) > walletCoins()) picked.delete(id);
+      overlay.querySelectorAll<HTMLButtonElement>('[data-boost]').forEach((x) => {
+        const on = picked.has(x.dataset.boost as BoostId);
+        x.setAttribute('aria-pressed', String(on));
+        const price = BOOSTS.find((bb) => bb.id === x.dataset.boost)!.price;
+        x.disabled = !on && boostCost([...picked]) + price > walletCoins();
+      });
+    };
+  });
 }
 
 let lastHud = '';
@@ -748,7 +868,7 @@ let lastPowerIds = '';
 function updatePowers() {
   const active: Array<[PowerKind, number]> = [];
   for (const [k, left] of Object.entries(run.powers) as Array<[TimedPower, number]>) {
-    active.push([k, left / run.tuning.powerTicks[k]]);
+    active.push([k, left / powerTicks(run, k)]);
   }
   if (run.shield) active.push(['helmet', 1]);
   const ids = active.map(([k]) => k).join(',');
@@ -769,7 +889,7 @@ function updateHud() {
   const endless = isEndless(run);
   const leftText = endless ? `${meters(run)} m` : `${run.delivered}/${run.cfg.goal}`;
   const hearts = Math.max(0, run.hearts);
-  const total = run.tuning.hearts;
+  const total = run.maxHearts;
   const coins = run.coins;
   const carry = run.carry;
   const key = `${leftText}|${hearts}|${coins}|${carry}|${endless ? 1 : 0}`;
@@ -975,6 +1095,7 @@ async function boot() {
   portal = await bootPortal();
   reloadProgress();
   reloadWallet();
+  reloadShop();
   reloadAvatar();
   const fonts = document.fonts;
   await Promise.race([

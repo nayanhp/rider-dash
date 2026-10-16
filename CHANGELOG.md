@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.10.0 — 2026-10-16 · Shop (Phase 3)
+
+- Shop opens after BTM Layout (Bengaluru area 5); before that its button shows a lock and says
+  when it opens. Coins are only earned by riding. Data in `src/data/shop.json`.
+- Upgrades: magnet, parcel net, nitro and 2× coins each have 5 levels at 100 / 250 / 500 /
+  1,000 / 2,000 coins; each level adds 20% duration (level 5 = twice as long).
+- Boosts, picked on a ride's briefing and paid when you ride: helmet (75), nitro start (60),
+  extra heart (120, a 4th heart; stars still cap at 3). Once the shop is open, Play goes
+  through the briefing so boosts can be picked.
+- Rider looks: the first three jackets and helmets and all skins are free; seven more cost
+  150–600 coins. Each city after Bengaluru gives a themed look for clearing its last area
+  (Mumbai raincoat, Delhi winter maroon, Hyderabad hard hat, Chennai marina blue, Pune
+  monsoon green, Kolkata taxi yellow, Ahmedabad kite pink). Locked swatches show a lock;
+  tapping one offers the purchase or names the city.
+- Upgrades and boosts are part of a run's inputs (`RunMods`), so replays stay exact.
+- Purchases (`owned`, `upgrades`) save with the rest of progress, CrazyGames data module included.
+- 101 tests.
+
 ## 0.9.0 — 2026-10-16 · Power-ups (Phase 2)
 
 - Six road power-ups, unlocked one per Bengaluru area with a "New:" tip and shown early in

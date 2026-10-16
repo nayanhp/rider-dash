@@ -478,3 +478,30 @@ describe('power-ups', () => {
     expect(found).toBe(true);
   });
 });
+
+describe('shop mods', () => {
+  it('an extra heart gives four hearts, and stars still cap at three', () => {
+    const s = createRun(L1, 1, { autoSpawn: false, mods: { extraHeart: true } });
+    expect(s.hearts).toBe(TUNING.hearts + 1);
+    expect(s.maxHearts).toBe(TUNING.hearts + 1);
+  });
+
+  it('start boosts put a helmet on and light the nitro', () => {
+    const s = createRun(L1, 1, { autoSpawn: false, mods: { startHelmet: true, startNitro: true } });
+    expect(s.shield).toBe(true);
+    expect(hasPower(s, 'nitro')).toBe(true);
+  });
+
+  it('upgrades make power-ups last longer, and replays with the same mods match', () => {
+    const mods = { powerScale: { magnet: 1.6 } };
+    const s = createRun(L1, 1, { autoSpawn: false, mods });
+    addPower(s, 'magnet', 1, 60);
+    rideTo(s, 80);
+    expect(s.powers.magnet).toBeGreaterThan(TUNING.powerTicks.magnet);
+    const log = scriptedLog(1800);
+    const a = replay(ENDLESS, 5, log, 1800, { mods: { startNitro: true } });
+    const b = replay(ENDLESS, 5, log, 1800, { mods: { startNitro: true } });
+    expect(b.dist).toBe(a.dist);
+    expect(b.coins).toBe(a.coins);
+  });
+});

@@ -9,6 +9,10 @@ export interface AvatarOption {
   id: string;
   name: string;
   color: string;
+  /** Coins to buy it. Absent with no reward means free. */
+  price?: number;
+  /** City id whose last area unlocks it for free. */
+  reward?: string;
 }
 
 export interface AvatarChoice {
@@ -72,6 +76,10 @@ export function reloadAvatar(): AvatarChoice {
   return choice;
 }
 
+/** Free options are always owned; priced and reward options need a purchase or a city clear. */
+export const isFree = (o: AvatarOption) => o.price === undefined && o.reward === undefined;
+
+/** Wear a part. Callers check ownership first (see shop.ts); unknown ids fall back to the default. */
 export function setAvatarPart(part: AvatarPart, id: string): AvatarChoice {
   if (!PARTS.includes(part)) return choice;
   choice = normalizeChoice({ ...choice, [part]: id });
