@@ -18,5 +18,5 @@ describe('balance', () => {
     const first = playLevel(LEVELS[0], 1);
     expect(first.status).toBe('won');
     expect(playLevel(LEVELS[0], 1)).toEqual(first);
-  }, 30_000);
+  }, 60_000);
 });

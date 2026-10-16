@@ -35,6 +35,13 @@ function pendingLane(s: RunState, queue: readonly (Command | null)[]): number {
 
 /** Lanes a threat holds now and will hold when the rider reaches it. */
 function lanesOf(s: RunState, o: Obj, spd: number): number[] {
+  // A cop whistles, then steps in. Leave that lane as soon as he's in view.
+  if (o.kind === 'cop') {
+    const lanes: number[] = [];
+    if (o.lane >= 0 && o.lane <= 2) lanes.push(o.lane);
+    if (o.move && o.move.phase !== 'done' && o.move.to >= 0 && o.move.to <= 2 && o.move.to !== o.lane) lanes.push(o.move.to);
+    return lanes;
+  }
   const m = o.move;
   if (!m || m.phase === 'done') return [o.lane];
   const rel = o.z - s.dist;

@@ -2,7 +2,7 @@ import './style.css';
 import { avatarChoice, colorsFor, optionFor, reloadAvatar, setAvatarPart, AVATAR_OPTIONS, PARTS, type AvatarChoice, type AvatarOption, type AvatarPart } from './avatar';
 import { BOOSTS, MAX_UPGRADE, UPGRADES, boostCost, buyLook, buyUpgrade, claimCityRewards, modsForRun, nextUpgradePrice, ownsLook, reloadShop, shopOpen, shopOpensAt, upgradeLevel, type BoostId } from './shop';
 import { attachDebug } from './debug';
-import { hintFor } from './hint';
+import { COP_HINT, COP_HINT_TICKS, copHint, hintFor } from './hint';
 import { Input } from './input';
 import { nextHold, type Hold } from './pause';
 import { track } from './platform/analytics';
@@ -259,9 +259,13 @@ function resetHudMotion() {
 }
 
 /** Start a run. Upgrades always apply; boosts are paid for here and dropped if unaffordable. */
+/** Sim tick until which the one-time cop hint stays on screen. */
+let copHintUntil = 0;
+
 function startRun(cfg: LevelConfig, boosts: readonly BoostId[] = []) {
   cancelCount();
   manualPause = false;
+  copHintUntil = 0;
   run = createRun(cfg, newSeed(), { mods: modsForRun(boosts) });
   log = [];
   renderer.reset(run);
@@ -1067,6 +1071,11 @@ function showCombo(n: number) {
 }
 
 function updateHint() {
+  if (playing && hold === 'play' && run.tick < copHintUntil) {
+    hintEl.hidden = false;
+    if (hintEl.textContent !== COP_HINT) hintEl.textContent = COP_HINT;
+    return;
+  }
   const text = playing
     ? hintFor({
         firstLevel: run.cfg.id === LEVELS[0].id,
@@ -1109,6 +1118,14 @@ function voice(events: readonly SimEvent[]) {
   const won = events.some((e) => e.type === 'won');
   for (const e of events) {
     if (e.type === 'deliver' && won) continue;
+    if (e.type === 'cop') {
+      play(e.phase === 'warn' ? 'whistle' : 'halt');
+      if (e.phase === 'warn' && copHint(load('seenCop', false))) {
+        save('seenCop', true);
+        copHintUntil = run.tick + COP_HINT_TICKS;
+      }
+      continue;
+    }
     const name = SFX[e.type];
     if (name) play(name);
   }

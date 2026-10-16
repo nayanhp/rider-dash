@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.16.0 — 2026-10-16 · Harder curve, traffic cop
+
+- Parcel goals ramp much faster. The first two Bengaluru areas stay at 2 parcels and the opening speed. By area 5 the goal has stepped up, and the last area asks for 20 (double the old cap of 10).
+- Speed, obstacle density and row spacing follow a knot table, not a straight line: flat for those two areas, then an ease-in so late cities get the steep part. A pure power ease-in on the raw 0–1 difficulty would still have left area 5 almost as easy as the start, which is the stretch that felt too slow.
+- Traffic cop from JP Nagar (Bengaluru area 8). He stands off the lanes, whistles for about 0.8s (amber lane, flashing mark, whistle), then steps into one lane. Stay in it and you stop for 2 seconds and pay ₹5, with no heart or parcel lost. Switch lanes during the whistle and he misses. From Mumbai's Colaba he patrols into the next lane, still one lane at a time, and never into a lane that would close the road. The first area places one cop early. The hint shows once, the first time he whistles, and is saved.
+- Endless uses the same cop, sometimes patrolling.
+
 ## 0.15.0 — 2026-10-16 · CrazyGames launch fixes
 
 - Coin store is hidden on CrazyGames until a live `PaymentService` exists. The `+` on coin chips

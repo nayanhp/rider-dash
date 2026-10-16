@@ -20,6 +20,7 @@ import skyPuneUrl from '../sprites/skyline-pune.svg';
 import skyKolkataUrl from '../sprites/skyline-kolkata.svg';
 import skyAhmedabadUrl from '../sprites/skyline-ahmedabad.svg';
 import walkerUrl from '../sprites/walker.svg';
+import copUrl from '../sprites/cop.svg';
 import puddleUrl from '../sprites/puddle.svg';
 import barrierUrl from '../sprites/barrier.svg';
 import monkeyUrl from '../sprites/monkey.svg';
@@ -73,6 +74,7 @@ export const SPRITES = {
   'skyline-ahmedabad': spec('skyline-ahmedabad', skyAhmedabadUrl, 0, 0, 400, 80, 0, 80, 0, 1200),
 
   walker: spec('walker', walkerUrl, 0, 0, 64, 128, 32, 123, 0.42, 256),
+  cop: spec('cop', copUrl, 0, 0, 80, 140, 40, 134, 0.52, 384),
   puddle: spec('puddle', puddleUrl, 0, 0, 160, 48, 80, 26, 1.3, 512),
   barrier: spec('barrier', barrierUrl, 0, 0, 140, 90, 70, 86, 1.05, 512),
   monkey: spec('monkey', monkeyUrl, 0, 0, 80, 80, 40, 76, 0.5, 256),

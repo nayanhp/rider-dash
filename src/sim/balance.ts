@@ -125,7 +125,7 @@ Headless check of all ${rows.length} generated levels. A deterministic bot (\`sr
 
 Overall clear rate across seeds: **${pct(clears)}**. Level 1 is ${pct(rows[0].clearRate)}. The last area is ${pct(rows[rows.length - 1].clearRate)}.
 
-The difficulty number is \`cityIndex * cityStep + areaFraction * areaSpan\`, capped at 1. \`cityStep\` is 0.057143 and \`areaSpan\` is 0.6, so the cap lands on the last area of Ahmedabad. It used to be 0.08, which pinned Lake Town through New Town in Kolkata, and Shahibaug through Manek Chowk in Ahmedabad, to the same maximum speed, goal, and density.
+The difficulty number is \`cityIndex * cityStep + areaFraction * areaSpan\`, capped at 1. \`cityStep\` is 0.057143 and \`areaSpan\` is 0.6, so the cap lands on the last area of Ahmedabad. Parcel goals, speed, density and row gap come from the knot table in \`levels.json\` (a short flat shelf, a step by Bengaluru area 5, then an ease-in). It used to be a straight lerp, which left the first half of Bengaluru almost as easy as the opening.
 
 ## By city
 

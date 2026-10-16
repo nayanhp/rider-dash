@@ -27,6 +27,8 @@ export interface Obj {
   hot?: boolean;
   /** Length along the road, for long vehicles (trams). The body runs from z to z + len. */
   len?: number;
+  /** A patrolling cop's next lane, decided at spawn. Cleared once he sets off. */
+  patrolTo?: number;
   done: boolean;
 }
 
@@ -78,6 +80,8 @@ export type SimEvent =
   | { type: 'tip'; coins: number }
   | { type: 'cold' }
   | { type: 'thief'; phase: 'arrive' | 'shove' | 'steal' | 'dodge' | 'outran' }
+  | { type: 'cop'; phase: 'warn' }
+  | { type: 'cop'; phase: 'stop'; fine: number }
   | { type: 'jump' }
   | { type: 'won' }
   | { type: 'lost' }
@@ -118,6 +122,10 @@ export interface RunState {
   hotT: number;
   /** A rival rider after a parcel. */
   thief: Thief | null;
+  /** Ticks left standing still after touching a traffic cop. */
+  stoppedT: number;
+  /** The area's scripted cop has been placed. */
+  copTaught: boolean;
   mods: RunMods;
   invulnT: number;
   hearts: number;
@@ -186,6 +194,8 @@ export function createRun(cfg: LevelConfig, seed: number, opts: RunOptions = {})
     hotCarry: 0,
     hotT: 0,
     thief: null,
+    stoppedT: 0,
+    copTaught: false,
     carry: 0,
     delivered: 0,
     coins: 0,
@@ -295,6 +305,90 @@ export function addMover(s: RunState, rng: Rng, kind: MoverKind, lane: number, z
   return o;
 }
 
+const SOFT: ReadonlySet<string> = new Set(['coin', 'parcel', 'drop', 'power', 'hole', 'bump', 'puddle', 'monkey']);
+
+/** Lanes this object is physically blocking right now. A cop off the road blocks none. */
+export function lanesHeld(o: Obj): number[] {
+  if (o.done || SOFT.has(o.kind)) return [];
+  if (o.kind === 'cop') return o.lane >= 0 && o.lane <= 2 ? [o.lane] : [];
+  return o.lane >= 0 && o.lane <= 2 ? [o.lane] : [];
+}
+
+/**
+ * Lanes a new cop must not step into. A walker is crossing the whole road, and a
+ * vehicle that is about to change lanes reserves the lane it is going to.
+ */
+function lanesReserved(o: Obj): number[] {
+  if (o.done || SOFT.has(o.kind)) return [];
+  if (o.kind === 'walker' && o.move) return [0, 1, 2];
+  const lanes = lanesHeld(o);
+  if (o.kind !== 'cop' && o.move && o.move.phase !== 'done' && o.move.to >= 0 && o.move.to <= 2 && o.move.to !== o.lane) {
+    lanes.push(o.move.to);
+  }
+  return lanes;
+}
+
+function nearZ(o: Obj, z: number, slack: number): boolean {
+  const end = o.z + (o.len ?? 0);
+  return o.z - slack <= z && end + slack >= z;
+}
+
+/** How many lanes are free of solid threats around z. Rewards and jumpable hazards don't count. */
+export function openLanesAt(objs: readonly Obj[], z: number, slack: number): number {
+  const lanes = new Set<number>();
+  for (const o of objs) {
+    if (!nearZ(o, z, slack)) continue;
+    for (const lane of lanesHeld(o)) lanes.add(lane);
+  }
+  return LANES - lanes.size;
+}
+
+/**
+ * A traffic cop standing just off the road. `to` is the lane he will step into after
+ * the whistle. The lane is chosen by the caller so another lane stays open.
+ */
+export function addCop(s: RunState, to: number, z: number, fromLeft: boolean, patrol: boolean): Obj {
+  const o = addObj(s, 'cop', fromLeft ? -1 : 3, z);
+  o.lx = fromLeft ? -0.55 : 2.55;
+  o.lane = fromLeft ? -1 : 3;
+  const warnTicks = s.tuning.copWarnTicks;
+  o.move = {
+    trigger: Math.max(1, s.cfg.v1) * (warnTicks / s.tuning.tickRate),
+    phase: 'wait',
+    warnLeft: 0,
+    warnTicks,
+    to,
+    laneSpeed: s.tuning.copLaneSpeed,
+  };
+  if (patrol) o.patrolTo = to === 1 ? (fromLeft ? 2 : 0) : 1;
+  return o;
+}
+
+function placeCop(s: RunState, rng: Rng, z: number): boolean {
+  const slack = s.tuning.pairJitter + 80;
+  const reserved = new Set<number>();
+  for (const o of s.objs) {
+    if (!nearZ(o, z, slack)) continue;
+    for (const lane of lanesReserved(o)) reserved.add(lane);
+  }
+  const open = [0, 1, 2].filter((lane) => !reserved.has(lane));
+  // Two open lanes: he takes one, and one stays clear. One open lane would seal the road.
+  if (open.length < 2) return false;
+  const to = rng.pick(open);
+  const fromLeft = to === 0 || (to === 1 && (reserved.has(0) || !reserved.has(2)));
+  addCop(s, to, z, fromLeft, !!s.cfg.copPatrol);
+  return true;
+}
+
+function maybeCop(s: RunState, rng: Rng, z: number) {
+  const teach = !!s.cfg.teachCop && !s.copTaught && s.rows >= s.tuning.copTeachRow;
+  const chance = s.cfg.copChance ?? 0;
+  if (!teach && chance <= 0) return;
+  if (!teach && rng.next() >= chance) return;
+  if (!placeCop(s, rng, z)) return;
+  if (teach) s.copTaught = true;
+}
+
 export function startThief(s: RunState, rng: Rng) {
   const me = Math.round(s.lx);
   const lane = me === 1 ? (rng.next() < 0.5 ? 0 : 2) : 1;
@@ -353,6 +447,7 @@ function moveObjects(s: RunState, dt: number) {
       if (o.z - s.dist > m.trigger) continue;
       m.phase = m.warnTicks > 0 ? 'warn' : 'move';
       m.warnLeft = m.warnTicks;
+      if (o.kind === 'cop' && m.phase === 'warn') s.events.push({ type: 'cop', phase: 'warn' });
     }
     if (m.phase === 'warn') {
       if (--m.warnLeft > 0) continue;
@@ -360,8 +455,26 @@ function moveObjects(s: RunState, dt: number) {
     }
     const stepLanes = m.laneSpeed * dt;
     o.lx = o.lx < m.to ? Math.min(m.to, o.lx + stepLanes) : Math.max(m.to, o.lx - stepLanes);
-    if (o.lx === m.to) m.phase = 'done';
-    o.lane = Math.round(o.lx);
+    // A cop only blocks the lane he was whistling for, not the lanes he walks across to reach it.
+    if (o.kind === 'cop') o.lane = Math.abs(o.lx - m.to) <= 0.34 ? m.to : (o.lx < m.to ? -1 : 3);
+    else o.lane = Math.round(o.lx);
+    if (o.lx !== m.to) continue;
+    o.lane = m.to;
+    if (o.kind === 'cop' && o.patrolTo !== undefined && o.patrolTo !== m.to) {
+      const next = o.patrolTo;
+      o.patrolTo = undefined;
+      o.move = {
+        trigger: 0,
+        phase: 'warn',
+        warnLeft: s.tuning.copPatrolWarnTicks,
+        warnTicks: s.tuning.copPatrolWarnTicks,
+        to: next,
+        laneSpeed: s.tuning.copPatrolSpeed,
+      };
+      s.events.push({ type: 'cop', phase: 'warn' });
+    } else {
+      m.phase = 'done';
+    }
   }
 }
 
@@ -433,6 +546,7 @@ export function spawnRow(s: RunState, z: number) {
   }
   const dogChance = s.cfg.dogChance ?? 0;
   if (dogChance > 0 && !s.dog && !s.zone && s.tick >= t.dogMinTick && rng.next() < dogChance) startDog(s);
+  maybeCop(s, rng, z);
   s.rngState = rng.state;
 }
 
@@ -584,6 +698,18 @@ function collide(s: RunState, o: Obj) {
       s.combo = 0;
       s.events.push({ type: 'stolen' });
     }
+  } else if (o.kind === 'cop') {
+    // A whistle, then a stop and a fine. Not a crash: no heart, no parcel.
+    if (hasPower(s, 'nitro') || s.invulnT > 0) {
+      o.done = true;
+      return;
+    }
+    o.done = true;
+    const fine = Math.min(s.coins, t.copFine);
+    s.coins -= fine;
+    s.stoppedT = t.copStopTicks;
+    s.v = 0;
+    s.events.push({ type: 'cop', phase: 'stop', fine });
   } else if (o.kind === 'hole' || o.kind === 'bump') {
     // Jump it, or ride over it and lose most of your speed. No heart lost. Nitro skims over.
     if (airborne(s) || hasPower(s, 'nitro')) return;
@@ -611,7 +737,7 @@ function inReach(s: RunState, o: Obj, myLane: number): boolean {
 
 function chaseDog(s: RunState, dt: number) {
   const d = s.dog;
-  if (!d) return;
+  if (!d || s.stoppedT > 0) return;
   const t = s.tuning;
   d.gap = Math.min(t.dogStartGap, d.gap + (s.v - targetSpeed(s) * t.dogPace) * dt);
   d.ticksLeft--;
@@ -656,10 +782,16 @@ export function step(s: RunState, cmds: readonly Command[] = []) {
   for (const c of cmds) if (c !== 'revive' && c !== 'reviveCoins') applyCommand(s, c);
 
   // Ease toward the target: gently for a speed step-up, quickly back after a brake or bump.
+  // A cop holds the rider at 0 for copStopTicks, then lets go at cruising speed.
   const braking = s.braking;
-  const target = targetSpeed(s) * (braking ? t.brakeFactor : 1);
-  if (s.v < target) s.v = Math.min(target, s.v + (s.v < target * 0.92 ? t.recoverAccel : t.speedAccel) * dt);
-  else s.v = Math.max(target, s.v - (braking ? t.brakeDecel : t.speedAccel) * dt);
+  if (s.stoppedT > 0) {
+    s.v = 0;
+    if (--s.stoppedT === 0) s.v = targetSpeed(s) * (braking ? t.brakeFactor : 1);
+  } else {
+    const target = targetSpeed(s) * (braking ? t.brakeFactor : 1);
+    if (s.v < target) s.v = Math.min(target, s.v + (s.v < target * 0.92 ? t.recoverAccel : t.speedAccel) * dt);
+    else s.v = Math.max(target, s.v - (braking ? t.brakeDecel : t.speedAccel) * dt);
+  }
   s.dist += s.v * dt;
   s.tick++;
   const follow = s.cfg.rain || s.wetT > 0 ? t.rainLaneFollow : t.laneFollow;
@@ -675,7 +807,8 @@ export function step(s: RunState, cmds: readonly Command[] = []) {
 
   if (s.autoSpawn && s.dist >= s.nextRowAt) {
     spawnRow(s, s.dist + t.spawnAhead);
-    s.nextRowAt = s.dist + Math.max(t.rowGapMin, t.rowGapStart - seconds(s) * t.rowGapShrinkPerSec);
+    const scale = s.cfg.gap ?? 1;
+    s.nextRowAt = s.dist + Math.max(t.rowGapMin * scale, (t.rowGapStart - seconds(s) * t.rowGapShrinkPerSec) * scale);
   }
 
   moveObjects(s, dt);
