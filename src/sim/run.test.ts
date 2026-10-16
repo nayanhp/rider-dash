@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ENDLESS, LEVELS, TUNING } from './config';
 import { Rng } from './rng';
-import { addMover, addObj, addPower, airborne, hasPower, startDog, startThief, beatBest, carryCap, createRun, targetSpeed, replay, reviveStillOpen, score, speed, spawnRow, step, type Command, type InputLog } from './run';
+import { addCop, addMover, addObj, addPower, airborne, hasPower, lanesHeld, openLanesAt, startDog, startThief, beatBest, carryCap, createRun, targetSpeed, replay, reviveStillOpen, score, speed, spawnRow, step, type Command, type InputLog } from './run';
 
 const L1 = LEVELS[0];
 const ALL_KINDS = LEVELS[3];
@@ -117,7 +117,7 @@ describe('lanes', () => {
 
 describe('pickups and deliveries', () => {
   it('collects parcels up to the carry limit', () => {
-    const s = bare(LEVELS.at(-1)); // goal 10, so the box limit of 3 applies
+    const s = bare(LEVELS.at(-1)); // a long goal, so the box limit of 3 applies
     for (let i = 0; i < 5; i++) addObj(s, 'parcel', 1, 200 + i * 100);
     rideTo(s, 700);
     expect(s.carry).toBe(TUNING.maxCarry);
@@ -661,5 +661,131 @@ describe('parcel thieves', () => {
     full.carry = 1;
     spawnRow(full, 1000);
     expect(full.thief).not.toBeNull();
+  });
+});
+
+describe('traffic cop', () => {
+  const armed = () => {
+    const s = bare(LEVELS[7]);
+    s.coins = 30;
+    s.lane = 1;
+    s.lx = 1;
+    return s;
+  };
+
+  it('whistles, then a stop and a fine if you stay in his lane', () => {
+    const s = armed();
+    const cop = addCop(s, 1, 0, false, false);
+    cop.z = s.dist + cop.move!.trigger;
+    expect(cop.lane < 0 || cop.lane > 2).toBe(true);
+    step(s);
+    expect(s.events.some((e) => e.type === 'cop' && e.phase === 'warn')).toBe(true);
+    step(s);
+    expect(s.events.some((e) => e.type === 'cop' && e.phase === 'warn')).toBe(false);
+    for (let i = 0; i < 500 && s.stoppedT === 0 && s.status === 'running'; i++) step(s);
+    expect(s.stoppedT).toBe(TUNING.copStopTicks);
+    expect(s.coins).toBe(30 - TUNING.copFine);
+    expect(s.hearts).toBe(TUNING.hearts);
+    expect(s.carry).toBe(0);
+    const at = s.dist;
+    for (let i = 0; i < TUNING.copStopTicks - 1; i++) step(s);
+    expect(s.dist).toBeCloseTo(at);
+    expect(s.stoppedT).toBe(1);
+    step(s);
+    expect(s.stoppedT).toBe(0);
+    expect(s.dist).toBeGreaterThan(at);
+  });
+
+  it('does not fine you below zero coins', () => {
+    const s = armed();
+    s.coins = 0;
+    addCop(s, 1, s.dist + s.v * 2, false, false);
+    for (let i = 0; i < 500 && s.stoppedT === 0; i++) step(s);
+    expect(s.stoppedT).toBe(TUNING.copStopTicks);
+    expect(s.coins).toBe(0);
+    expect(s.hearts).toBe(TUNING.hearts);
+  });
+
+  it('lets you switch lanes during the whistle', () => {
+    const s = armed();
+    const cop = addCop(s, 1, s.dist + s.v * 2, false, false);
+    cop.move!.phase = 'warn';
+    cop.move!.warnLeft = TUNING.copWarnTicks;
+    step(s, ['left']);
+    for (let i = 0; i < 500 && s.dist < cop.z + 80 && s.status === 'running'; i++) step(s);
+    expect(s.stoppedT).toBe(0);
+    expect(s.coins).toBe(30);
+    expect(s.hearts).toBe(TUNING.hearts);
+    expect(s.lane).toBe(0);
+  });
+
+  it('places the same cops for the same seed, and none before area 8', () => {
+    const layout = (level: number, seed: number) => {
+      const s = createRun(LEVELS[level], seed, { autoSpawn: false });
+      for (let r = 0; r < 20; r++) spawnRow(s, 1000 + r * 500);
+      return s.objs.filter((o) => o.kind === 'cop').map((o) => [o.z, o.move?.to, o.patrolTo]);
+    };
+    expect(layout(6, 3)).toEqual([]);
+    expect(layout(30, 4)).toEqual(layout(30, 4));
+    expect(layout(30, 4).length).toBeGreaterThan(0);
+    expect(layout(30, 4)).not.toEqual(layout(30, 5));
+  });
+
+  it('shows exactly one cop early on his first level, on every seed', () => {
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
+      const s = createRun(LEVELS[7], seed, { autoSpawn: false });
+      for (let r = 0; r < 16; r++) spawnRow(s, 1000 + r * 500);
+      const cops = s.objs.filter((o) => o.kind === 'cop');
+      expect(cops).toHaveLength(1);
+      expect(cops[0].move?.warnTicks).toBe(TUNING.copWarnTicks);
+    }
+  });
+
+  it('keeps a lane open, and a patrol never covers every lane', () => {
+    const slack = TUNING.pairJitter + 80;
+    const levels = [LEVELS[7], LEVELS[19], LEVELS[49], LEVELS.at(-1)!];
+    for (const cfg of levels) {
+      for (let seed = 1; seed <= 8; seed++) {
+        const s = createRun(cfg, seed, { autoSpawn: false });
+        for (let r = 0; r < 36; r++) {
+          const z = 2000 + r * 500;
+          spawnRow(s, z);
+          const held = new Set<number>();
+          const cops = s.objs.filter((o) => o.kind === 'cop' && Math.abs(o.z - z) <= slack);
+          for (const o of s.objs) {
+            if (o.kind === 'cop' || Math.abs(o.z - z) > slack + (o.len ?? 0)) continue;
+            for (const lane of lanesHeld(o)) held.add(lane);
+          }
+          expect(held.size).toBeLessThan(3);
+          expect(openLanesAt(s.objs, z, slack)).toBeGreaterThan(0);
+          for (const cop of cops) {
+            const target = cop.move?.to ?? cop.lane;
+            expect(target).toBeGreaterThanOrEqual(0);
+            expect(target).toBeLessThanOrEqual(2);
+            expect(held.has(target)).toBe(false);
+            expect(held.size).toBeLessThan(2);
+            expect(lanesHeld(cop).length).toBeLessThanOrEqual(1);
+            if (cop.patrolTo !== undefined) expect(Math.abs(cop.patrolTo - target)).toBe(1);
+          }
+        }
+      }
+    }
+  });
+
+  it('while he patrols, he still leaves a lane free', () => {
+    const s = bare(LEVELS[49]);
+    s.lane = 1;
+    s.lx = 1;
+    addObj(s, 'car', 2, s.dist + 400);
+    const cop = addCop(s, 0, s.dist + 400, true, true);
+    expect(cop.patrolTo).toBe(1);
+    for (let i = 0; i < 700 && s.status === 'running'; i++) {
+      step(s);
+      const lanes = new Set<number>([2]);
+      for (const lane of lanesHeld(cop)) lanes.add(lane);
+      expect(lanes.size).toBeLessThan(3);
+      expect(lanesHeld(cop).length).toBeLessThanOrEqual(1);
+    }
+    expect(cop.move?.phase === 'done' || cop.done || (cop.move && cop.move.to !== 0)).toBe(true);
   });
 });

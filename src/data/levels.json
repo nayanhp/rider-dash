@@ -1,25 +1,24 @@
 {
   "curve": {
-    "comment": "Difficulty d runs 0..1. d = cityIndex * cityStep + areaFraction * areaSpan, capped at 1. cityStep * 7 + areaSpan = 1, so the ceiling is the last area of the last city. A larger cityStep pinned Kolkata's finale and Ahmedabad's back half to the same maximum.",
+    "comment": "d runs 0..1: cityIndex * cityStep + areaFraction * areaSpan, capped at 1. cityStep * 7 + areaSpan = 1, so the ceiling is the last area of the last city. Stats are not a straight lerp. Knots map d to a 0..1 blend: goal is the parcel target, danger is speed, density and row gap. Global indexes below gentle stay on the floor (the first two areas). By d=0.1 (Bengaluru area 5) the parcel knot has stepped up. After that shoulder, danger's slope increases toward d=1 (ease-in), so late cities get the steep part. A pure power ease-in on raw d would still be flat at area 5, which is the stretch playtests called too easy.",
     "cityStep": 0.057143,
     "areaSpan": 0.6,
-    "goal": [
-      2,
-      10
-    ],
-    "v0": [
-      260,
-      420
-    ],
-    "v1Gap": [
-      100,
-      220
-    ],
-    "density": [
-      0.15,
-      0.6
-    ],
-    "ramp": 45
+    "gentle": 2,
+    "goal": [2, 20],
+    "v0": [260, 500],
+    "v1Gap": [100, 240],
+    "density": [0.15, 0.78],
+    "gap": [1, 0.68],
+    "ramp": 45,
+    "knots": [
+      { "d": 0, "goal": 0, "danger": 0 },
+      { "d": 0.025, "goal": 0, "danger": 0 },
+      { "d": 0.1, "goal": 0.22, "danger": 0.14 },
+      { "d": 0.22, "goal": 0.34, "danger": 0.22 },
+      { "d": 0.4, "goal": 0.48, "danger": 0.36 },
+      { "d": 0.65, "goal": 0.68, "danger": 0.58 },
+      { "d": 1, "goal": 1, "danger": 1 }
+    ]
   },
   "intro": [
     {
@@ -97,7 +96,9 @@
       "double",
       "heart"
     ],
-    "powerChance": 0.07
+    "powerChance": 0.07,
+    "copChance": 0.12,
+    "copPatrol": true
   },
   "tips": [
     "Back-to-back deliveries without a crash multiply your coins, up to ×3.",
@@ -148,6 +149,14 @@
   "brake": {
     "at": 26,
     "tip": "New: brake. Swipe down and hold (or hold ⬇) to slow down, never stop. Let go to speed back up. Braking resets your combo."
+  },
+  "cop": {
+    "comment": "Traffic cop from global index 7 (Bengaluru area 8, JP Nagar). That area places one cop early and keeps the cow tip; the one-time hint is cop.hint, shown in the run the first time he whistles. After that, chance eases in with the level. patrolFrom: he walks to the next lane after stepping in. He only steps into a lane when another lane stays open.",
+    "at": 7,
+    "patrolFrom": 49,
+    "chance": [0.06, 0.22],
+    "ease": 1.35,
+    "hint": "Traffic cop! Switch lanes while he whistles. He stops you and takes a small fine."
   },
   "powers": {
     "comment": "Power-ups unlock by global area index. The unlock area always shows the new one early; after that, chance is the share of reward slots that hold a power-up.",

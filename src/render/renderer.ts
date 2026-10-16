@@ -1,6 +1,6 @@
 // Pseudo-3D road renderer on Canvas 2D. Reads RunState, never changes it.
 // Visual-only randomness (particles, rain) lives here and may use Math.random.
-import type { RunState, SimEvent } from '../sim/run';
+import type { Obj, RunState, SimEvent } from '../sim/run';
 import { drawSprite, SPRITES, type SpriteId } from './art';
 import type { PowerKind } from '../sim/config';
 
@@ -148,6 +148,8 @@ export class Renderer {
       } else if (e.type === 'revive') {
         this.popup(x, py, 'Revived!', '#3A9A1E');
         this.burst(x, py + 20, '#5DD039', 18);
+      } else if (e.type === 'cop' && e.phase === 'stop') {
+        this.popup(x, py, e.fine > 0 ? `Stopped! ₹${e.fine} fine` : 'Stopped by the cop!', '#C23A30');
       }
     }
   }
@@ -369,6 +371,9 @@ export class Renderer {
         case 'walker':
           drawSprite(c, 'walker', p.x, p.y, SPRITES.walker.draw * lw);
           break;
+        case 'cop':
+          this.drawCop(s, o, p, lw);
+          break;
         case 'scooter':
           drawSprite(c, 'scooter', p.x, p.y, SPRITES.scooter.draw * lw);
           break;
@@ -378,7 +383,7 @@ export class Renderer {
         }
       }
       // An indicator flashes before a swerve or a drift.
-      if (o.move && (o.move.phase === 'warn' || o.move.phase === 'move') && o.kind !== 'walker') {
+      if (o.move && (o.move.phase === 'warn' || o.move.phase === 'move') && o.kind !== 'walker' && o.kind !== 'cop') {
         this.indicator(p.x, p.y - 0.95 * lw, Math.sign(o.move.to - o.lx), lw, s.tick);
       }
     }
@@ -402,6 +407,45 @@ export class Renderer {
       c.fillRect(-20, -20, W + 40, H + 40);
     }
     c.restore();
+  }
+
+  /**
+   * Traffic cop. While he whistles, the lane he is about to step into lights up
+   * and a whistle mark flashes over him.
+   */
+  private drawCop(s: RunState, o: Obj, p: { x: number; y: number; s: number }, lw: number) {
+    const m = o.move;
+    const telling = !!m && (m.phase === 'warn' || m.phase === 'move');
+    if (telling && m) {
+      const mark = this.proj(o.z - s.dist, m.to);
+      const blink = this.reduceMotion || Math.floor(s.tick / 8) % 2 === 0;
+      const c = this.ctx;
+      c.save();
+      c.fillStyle = blink ? 'rgba(255, 159, 26, 0.7)' : 'rgba(255, 159, 26, 0.32)';
+      c.beginPath();
+      c.ellipse(mark.x, mark.y, Math.max(10, lw * 0.5), Math.max(4, lw * 0.18), 0, 0, Math.PI * 2);
+      c.fill();
+      c.restore();
+      if (blink) this.whistleMark(p.x, p.y - lw * 1.25, lw);
+    }
+    drawSprite(this.ctx, 'cop', p.x, p.y, SPRITES.cop.draw * lw);
+  }
+
+  /** Three arcs and a mark, so the whistle reads before he steps in. */
+  private whistleMark(x: number, y: number, lw: number) {
+    const c = this.ctx;
+    c.save();
+    c.strokeStyle = '#FFFAF0';
+    c.lineWidth = Math.max(2, lw * 0.045);
+    c.lineCap = 'round';
+    for (let i = 1; i <= 3; i++) {
+      c.globalAlpha = 0.95 - i * 0.22;
+      c.beginPath();
+      c.arc(x + lw * 0.16, y, lw * 0.09 * i, -1, 1);
+      c.stroke();
+    }
+    c.restore();
+    this.text('!', x, y - lw * 0.02, Math.max(14, lw * 0.32), '#FFFAF0', '#C23A30');
   }
 
   /** The rival rider beside you. While it lines up its lunge, a red "!" flashes over it. */

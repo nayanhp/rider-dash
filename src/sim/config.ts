@@ -14,7 +14,7 @@ export type ThreatKind = Exclude<MoverKind, 'tram'> | 'dog' | 'crowd';
 export const POWERS = ['magnet', 'net', 'helmet', 'nitro', 'double', 'heart'] as const;
 export type PowerKind = (typeof POWERS)[number];
 export type TimedPower = 'magnet' | 'net' | 'nitro' | 'double';
-export type ObjKind = ObstacleKind | MoverKind | 'parcel' | 'coin' | 'drop' | 'power';
+export type ObjKind = ObstacleKind | MoverKind | 'parcel' | 'coin' | 'drop' | 'power' | 'cop';
 /** What hit the rider: any obstacle, a mover, or the dog catching up. */
 export type HitKind = ObstacleKind | MoverKind | 'dog';
 
@@ -65,6 +65,17 @@ export interface LevelConfig {
   tramChance?: number;
   /** Chance per row that a rival rider comes for a parcel (only while carrying). */
   thiefChance?: number;
+  /**
+   * Row spacing scale. 1 is the tuning gap; lower packs the road tighter.
+   * City levels always set it. Endless leaves it off and uses 1.
+   */
+  gap?: number;
+  /** Chance per row that a traffic cop steps into a lane. */
+  copChance?: number;
+  /** After he steps in, he walks to the next lane. */
+  copPatrol?: boolean;
+  /** This area places one cop early, so the one-time hint has someone to point at. */
+  teachCop?: boolean;
   /** Power-ups that can appear, the share of reward slots that hold one, and the one this area introduces. */
   powers?: PowerKind[];
   powerChance?: number;
@@ -92,6 +103,56 @@ type LevelsData = typeof levelsData;
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const lerp = ([lo, hi]: number[], t: number) => lo + (hi - lo) * t;
 
+type Knot = { d: number; goal: number; danger: number };
+
+/** Blend a knot table. `d` is clamped to the first and last knots. */
+export function knotBlend(knots: readonly Knot[], d: number, key: 'goal' | 'danger'): number {
+  if (knots.length === 0) return 0;
+  if (d <= knots[0].d) return knots[0][key];
+  for (let i = 1; i < knots.length; i++) {
+    const hi = knots[i];
+    const lo = knots[i - 1];
+    if (d <= hi.d || i === knots.length - 1) {
+      const span = hi.d - lo.d;
+      const u = span <= 0 ? 1 : Math.min(1, (d - lo.d) / span);
+      return lo[key] + (hi[key] - lo[key]) * u;
+    }
+  }
+  return knots[knots.length - 1][key];
+}
+
+export interface DifficultySample {
+  level: number;
+  city: string;
+  area: string;
+  goal: number;
+  v0: number;
+  v1: number;
+  density: number;
+  gap: number;
+  copChance: number;
+}
+
+/** The levels called out when tuning the curve. 1-based. */
+export const DIFFICULTY_SAMPLE_LEVELS = [1, 5, 10, 20, 50, 100, 200] as const;
+
+export function difficultySample(levels: readonly LevelConfig[] = LEVELS): DifficultySample[] {
+  return DIFFICULTY_SAMPLE_LEVELS.map((level) => {
+    const cfg = levels[level - 1];
+    return {
+      level,
+      city: cfg.city ?? '',
+      area: cfg.name,
+      goal: cfg.goal ?? 0,
+      v0: cfg.v0,
+      v1: cfg.v1,
+      density: cfg.density,
+      gap: cfg.gap ?? 1,
+      copChance: cfg.copChance ?? 0,
+    };
+  });
+}
+
 /**
  * Build every city's levels from the area lists and one difficulty curve. Level ids are
  * `city-area` slugs, so saved stars survive reordering or adding areas.
@@ -103,6 +164,8 @@ export function buildCities(cities: CityData[], data: LevelsData = levelsData): 
   const ct = data.cityThreats;
   const citySchedule = ct.schedule as { at: number; feature: CityFeature; tip: string }[];
   const allKinds = intro[intro.length - 1].kinds as ObstacleKind[];
+  const total = cities.reduce((n, c) => n + c.areas.length, 0);
+  const cop = data.cop;
   let global = 0;
   return cities.map((c, ci) => {
     const n = c.areas.length;
@@ -125,7 +188,14 @@ export function buildCities(cities: CityData[], data: LevelsData = levelsData): 
       const calm = inIntro || g < weather.from || !!cityTeach;
       const rain = !calm && (ai + 1) % (c.rainEvery ?? weather.rainEvery) === 0;
       const night = !calm && (finale || (ai + 1) % weather.nightEvery === 0);
-      const v0 = Math.round(lerp(curve.v0, d));
+      // First areas stay on the floor. After that, knots bend d: parcels step up early,
+      // and speed / density / gap ease in toward the last city.
+      const gentle = g < curve.gentle;
+      const goalT = gentle ? 0 : knotBlend(curve.knots, d, 'goal');
+      const dangerT = gentle ? 0 : knotBlend(curve.knots, d, 'danger');
+      const v0 = Math.round(lerp(curve.v0, dangerT));
+      const copSpan = Math.max(1, total - 1 - cop.at);
+      const copT = g <= cop.at ? 0 : Math.pow((g - cop.at) / copSpan, cop.ease);
       // Threats unlocked so far. The unlock area teaches its threat alone; the next is a breather.
       const teach = schedule.find((u) => u.at === g);
       const breather = schedule.some((u) => u.at === g - 1);
@@ -153,11 +223,12 @@ export function buildCities(cities: CityData[], data: LevelsData = levelsData): 
         id: `${c.id}-${slug(area)}`,
         name: area,
         tip,
-        goal: Math.round(lerp(curve.goal, d)),
+        goal: Math.round(lerp(curve.goal, goalT)),
         v0,
-        v1: v0 + Math.round(lerp(curve.v1Gap, d)),
+        v1: v0 + Math.round(lerp(curve.v1Gap, dangerT)),
         ramp: curve.ramp,
-        density: Math.round(lerp(curve.density, d) * 100) / 100,
+        density: Math.round(lerp(curve.density, dangerT) * 100) / 100,
+        gap: Math.round(lerp(curve.gap, dangerT) * 100) / 100,
         kinds: inIntro ? (intro[g].kinds as ObstacleKind[]) : allKinds,
         ...(hazards.length && {
           hazards: hazardTeach ? hazards.filter((f) => teaching(f)) : [...hazards],
@@ -177,6 +248,11 @@ export function buildCities(cities: CityData[], data: LevelsData = levelsData): 
         ...(has('thief') && { thiefChance: teaching('thief') ? ct.teachThiefChance : ct.thiefChance }),
         ...(has('hot') && { hotChance: teaching('hot') ? ct.teachHotChance : ct.hotChance }),
         ...(tram && { tramLane: ai % 2 === 0 ? 0 : 2, tramChance: teaching('tram') ? ct.teachTramChance : ct.tramChance }),
+        ...(g === cop.at && { teachCop: true }),
+        ...(g > cop.at && {
+          copChance: Math.round(lerp(cop.chance, copT) * 100) / 100,
+          ...(g >= cop.patrolFrom && { copPatrol: true }),
+        }),
         ...(powers.length && {
           powers,
           powerChance: powerTeach ? data.powers.teachChance : data.powers.chance,

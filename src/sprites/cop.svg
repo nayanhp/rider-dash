@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 140" width="80" height="140">
+  <ellipse cx="40" cy="134" rx="22" ry="4" fill="#2A2F5A" opacity=".25"/>
+  <ellipse cx="30" cy="128" rx="8" ry="4.2" fill="#2A2F5A"/>
+  <ellipse cx="50" cy="128" rx="8" ry="4.2" fill="#2A2F5A"/>
+  <path d="M28 86l-4 38h12l4-30 4 30h12l-4-38z" fill="#C6A15A" stroke="#2A2F5A" stroke-width="2.5" stroke-linejoin="round"/>
+  <rect x="26" y="82" width="28" height="7" rx="2" fill="#6B4423" stroke="#2A2F5A" stroke-width="2"/>
+  <rect x="36" y="82" width="8" height="7" fill="#E0B050" stroke="#2A2F5A" stroke-width="1.5"/>
+  <path d="M22 46c0-4 7-8 18-8s18 4 18 8l4 38H18z" fill="#FFFAF0" stroke="#2A2F5A" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M22 48l-2 8h9l1-8zM58 48l2 8h-9l-1-8z" fill="#C6A15A" stroke="#2A2F5A" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M22 54l-9 30" stroke="#FFFAF0" stroke-width="8" stroke-linecap="round"/>
+  <path d="M22 54l-9 30" stroke="#2A2F5A" stroke-width="2.5" stroke-linecap="round" fill="none" opacity=".4"/>
+  <circle cx="12" cy="86" r="4.6" fill="#C68642" stroke="#2A2F5A" stroke-width="2"/>
+  <path d="M56 50l12-24" stroke="#FFFAF0" stroke-width="8" stroke-linecap="round"/>
+  <path d="M56 50l12-24" stroke="#2A2F5A" stroke-width="2.5" stroke-linecap="round" fill="none" opacity=".4"/>
+  <circle cx="70" cy="24" r="5.2" fill="#FFFAF0" stroke="#2A2F5A" stroke-width="2"/>
+  <rect x="34" y="38" width="12" height="8" fill="#C68642"/>
+  <circle cx="40" cy="30" r="13" fill="#C68642" stroke="#2A2F5A" stroke-width="2.5"/>
+  <path d="M22 26c1-12 8-16 18-16s17 4 20 14c1 3 0 7-3 7H26c-4 0-5-2-4-5z" fill="#1E3A6E" stroke="#2A2F5A" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M26 28c5-2 24-2 30 1" stroke="#C23A30" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <circle cx="46" cy="18" r="2.3" fill="#FFCC2E" stroke="#2A2F5A" stroke-width="1"/>
+  <circle cx="35" cy="32" r="1.7" fill="#2A2F5A"/>
+  <circle cx="45" cy="32" r="1.7" fill="#2A2F5A"/>
+  <path d="M40 42c8 6 10 12 6 20" fill="none" stroke="#2A2F5A" stroke-width="1.6"/>
+  <circle cx="46" cy="64" r="3.4" fill="#E8EEF5" stroke="#2A2F5A" stroke-width="1.6"/>
+  <rect x="35" y="56" width="8" height="11" rx="1.5" fill="#1E3A6E" stroke="#2A2F5A" stroke-width="1.5"/>
+</svg>

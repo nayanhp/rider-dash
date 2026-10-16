@@ -3,7 +3,7 @@
 // is created on the first gesture so iOS will start it.
 import { load, save } from './storage';
 
-export type Sfx = 'jump' | 'coin' | 'parcel' | 'drop' | 'hit' | 'clear';
+export type Sfx = 'jump' | 'coin' | 'parcel' | 'drop' | 'hit' | 'clear' | 'whistle' | 'halt';
 
 let sdkMuted = false;
 let adMuted = false;
@@ -107,6 +107,13 @@ function playAt(name: Sfx, when: number) {
   } else if (name === 'hit') tone(196, when, 0.14, 'sawtooth', 0.16, -120);
   else if (name === 'clear') {
     [523, 659, 784, 1046].forEach((f, i) => tone(f, when + i * 0.09, 0.16, 'triangle', 0.14));
+  } else if (name === 'whistle') {
+    tone(1760, when, 0.08, 'square', 0.09);
+    tone(2093, when + 0.09, 0.12, 'square', 0.08);
+    tone(1760, when + 0.22, 0.1, 'square', 0.07);
+  } else if (name === 'halt') {
+    tone(220, when, 0.18, 'square', 0.12, -40);
+    tone(140, when + 0.06, 0.2, 'triangle', 0.1);
   }
 }
 

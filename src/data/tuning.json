@@ -98,5 +98,12 @@
   "thiefStartOffset": -180,
   "thiefDropAhead": 520,
   "thiefShoveCoins": 10,
-  "thiefMinTick": 240
+  "thiefMinTick": 240,
+  "copWarnTicks": 48,
+  "copPatrolWarnTicks": 36,
+  "copStopTicks": 120,
+  "copFine": 5,
+  "copLaneSpeed": 6,
+  "copPatrolSpeed": 1.4,
+  "copTeachRow": 4
 }
