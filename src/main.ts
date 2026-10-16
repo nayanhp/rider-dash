@@ -1095,7 +1095,9 @@ function frame(now: number) {
 }
 
 function resize() {
-  renderer.resize();
+  // Redraw at once after a real resize, so the wiped canvas is never what gets painted
+  // (phones resize repeatedly while the address bar slides away at the start of a run).
+  if (renderer.resize()) renderer.render(run, 0);
 }
 window.addEventListener('resize', resize);
 new ResizeObserver(() => resize()).observe(stage);

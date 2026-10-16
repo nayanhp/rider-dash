@@ -41,14 +41,23 @@ export class Renderer {
     ctx.imageSmoothingEnabled = true;
   }
 
-  resize() {
+  /**
+   * Match the canvas to its on-screen size. Setting canvas.width wipes it to black, and resize
+   * callbacks run after this frame's draw, so only touch it when the size really changed.
+   * Returns true when it did, so the caller can redraw before the frame is shown.
+   */
+  resize(): boolean {
     const r = this.canvas.getBoundingClientRect();
     const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const w = Math.round(r.width * dpr);
+    const h = Math.round(r.height * dpr);
     this.W = r.width;
     this.H = r.height;
-    this.canvas.width = Math.round(r.width * dpr);
-    this.canvas.height = Math.round(r.height * dpr);
+    if (this.canvas.width === w && this.canvas.height === h) return false;
+    this.canvas.width = w;
+    this.canvas.height = h;
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return true;
   }
 
   /** Clear transient effects between runs. */

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.14.1 — 2026-10-16 · No flashing at the start of a run
+
+- Fix: the background flashed black at the start of a run on phones. Each resize (the address
+  bar sliding away fires many) reset the canvas after that frame had been drawn, so a wiped
+  canvas was shown. The canvas now resets only when its size really changes, and is redrawn
+  straight away.
+
 ## 0.14.0 — 2026-10-16 · Rider previews, premium looks, coin store
 
 - Rider screen rebuilt: a big front-and-back preview, tabs for jacket / helmet / box / skin,
