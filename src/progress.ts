@@ -1,13 +1,26 @@
 // Stars per level, saved locally. Areas unlock in order; finishing a city's last area
-// opens the next city. Add ?unlock to the URL to open everything (for testing).
+// opens the next city. Off CrazyGames, ?unlock opens everything for testing; the portal
+// ignores that query (see configureUnlock, called once the portal mode is known).
 import { load, save } from './platform/storage';
 import { CITIES, LEVELS, type City, type LevelConfig } from './sim/config';
 
 // Loaded on first use, and again after the CrazyGames data module is installed,
 // so a save never reads localStorage before the portal store is ready.
 let stars: Record<string, number> | null = null;
-const unlockAll = new URLSearchParams(location.search).has('unlock');
+let unlockAll = false;
 const indexOf = new Map(LEVELS.map((l, i) => [l.id, i]));
+
+/** Turn the testing unlock on or off. Call after the portal has booted. */
+export function configureUnlock(on: boolean) {
+  unlockAll = on;
+}
+
+export const unlockAllEnabled = () => unlockAll;
+
+/** True once any area has a star. An empty save is a first-time player. */
+export function hasSavedStars(): boolean {
+  return Object.values(table()).some((n) => n > 0);
+}
 
 function table(): Record<string, number> {
   if (!stars) stars = load('stars', {});

@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.15.0 — 2026-10-16 · CrazyGames launch fixes
+
+- Coin store is hidden on CrazyGames until a live `PaymentService` exists. The `+` on coin chips
+  and "Get coins" are gone there; the saved balance stays. GitHub Pages and local dev still
+  show the store.
+- `window.rd` is only attached in dev builds (`attachDebug(import.meta.env.DEV)`).
+- `?unlock` and `?testpay` are ignored on a CrazyGames production build. They still work
+  off-portal and in dev builds. Localhost keeps test purchases.
+- A first-time player (no stars saved) starts Koramangala immediately, with the in-run hints.
+  Returning players, and `?unlock` where that query counts, still get the menu.
+- Midgame ads only on Retry, Next, and Ride again. None when entering or leaving Shop, Rider,
+  Get coins, Cities, Areas, or the menu. A break that is offering revive or double coins, or
+  that already played a rewarded ad, does not also play a midgame — including when the player
+  skips the video.
+- iPhone-minded layout: HUD, hint, combo, menus, and the mute button follow safe-area insets
+  on all four edges. On a short landscape phone the menu logo and buttons shrink so Play,
+  Endless, and Cities / Rider / Shop sit above the mute button.
+- Premium rider previews use blob URLs so WebKit can paint SVG pattern and gradient fills.
+  Audio resumes on `pointerdown` and `touchend`. A resume that fails (no output device)
+  is ignored instead of becoming an unhandled rejection.
+- Checked in Playwright WebKit with an iPhone 13 profile, not on a physical iPhone or the
+  iOS Simulator. First run reached the road and hint in well under a second; a swipe changed
+  lane; pause and resume worked; the CrazyGames menu had no coin-store control; Shop and Rider
+  requested no ads; a racing-stripe preview painted both colours. About 60 fps in that emulator.
+  Safe-area insets were 0 (no notch to emulate). The audio context stayed suspended because
+  that WebKit build has no audio output device.
+
 ## 0.14.2 — 2026-10-16 · Logo fallback
 
 - If the menu logo can't load (offline, dropped connection), the menu shows "Rider Dash" as a

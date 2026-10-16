@@ -2,11 +2,16 @@
 // the same way ads go through AdService.
 //
 // Providers:
-// - 'none': no store wired up here. Packs show "Coming soon".
-// - 'test': localhost or ?testpay. Asks the player to confirm a fake purchase; no money moves.
-// - CrazyGames (Xsolla) and Google Play Billing plug in here later. CrazyGames purchases are
-//   invite-only and need a signed-in player; see CRAZYGAMES.md.
+// - 'none': no store wired up here. Packs show "Coming soon" where the store is visible.
+// - 'test': localhost, or ?testpay off CrazyGames. Asks the player to confirm a fake purchase;
+//   no money moves. A CrazyGames production build ignores ?testpay.
+// - 'live': a real provider (CrazyGames Xsolla, Google Play Billing). Not wired yet.
+//   CrazyGames purchases are invite-only and need a signed-in player; see CRAZYGAMES.md.
+//   Until then the coin store is hidden on the portal (see coinStoreVisible).
 import shop from '../data/shop.json';
+import { honourDevQuery, type PaymentMode, type PortalMode } from './launch';
+
+export type { PaymentMode };
 
 export interface CoinPack {
   id: string;
@@ -27,7 +32,7 @@ export interface PaymentResult {
 }
 
 export interface PaymentService {
-  mode: 'none' | 'test';
+  mode: PaymentMode;
   available(): boolean;
   priceLabel(pack: CoinPack): string;
   buy(pack: CoinPack): Promise<PaymentResult>;
@@ -52,8 +57,20 @@ export function testPayments(confirm: (pack: CoinPack) => Promise<boolean>): Pay
   };
 }
 
-/** Test purchases on a local dev host, or anywhere with ?testpay. Otherwise none until a real provider is wired. */
-export function wantsTestPayments(where: { hostname: string; search: string }): boolean {
+/**
+ * Test purchases on a local dev host, or off-portal with ?testpay.
+ * CrazyGames production ignores the query (and a dev-looking host) so a shared link cannot grant coins.
+ * Dev builds still honour it, including when the local SDK reports the portal.
+ */
+export function wantsTestPayments(where: {
+  hostname: string;
+  search: string;
+  portal?: PortalMode;
+  dev?: boolean;
+}): boolean {
+  const portal = where.portal ?? 'offline';
+  const dev = where.dev ?? false;
+  if (!honourDevQuery(portal, dev)) return false;
   const local = where.hostname === 'localhost' || where.hostname === '127.0.0.1';
   return local || new URLSearchParams(where.search).has('testpay');
 }

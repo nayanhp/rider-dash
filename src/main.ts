@@ -8,6 +8,14 @@ import { nextHold, type Hold } from './pause';
 import { track } from './platform/analytics';
 import { loadUserMute, muteControl, play, toggleUserMute, unlock, type Sfx } from './platform/audio';
 import { bootPortal, type Portal } from './platform/crazygames';
+import {
+  coinStoreVisible,
+  midgameOnLeave,
+  shouldStartInGameplay,
+  unlockQueryEnabled,
+  type AdBreak,
+  type LeaveTarget,
+} from './platform/launch';
 import { COIN_PACKS, noPayments, packTotal, testPayments, wantsTestPayments, type CoinPack, type PaymentService } from './platform/payments';
 import { load, save } from './platform/storage';
 import { loadSprites } from './render/art';
@@ -26,7 +34,7 @@ import nightUrl from './sprites/badge-night.svg';
 import unlockUrl from './sprites/badge-city-unlock.svg';
 import { CITIES, ENDLESS, LEVELS, type City, type LevelConfig, type PowerKind, type TimedPower } from './sim/config';
 import { RunPayout, addCoins, reloadWallet, walletCoins } from './wallet';
-import { cityCleared, cityOf, cityStars, cityUnlocked, currentLevel, isUnlocked, nextLevel, recordStars, reloadProgress, starsFor } from './progress';
+import { cityCleared, cityOf, cityStars, cityUnlocked, configureUnlock, currentLevel, hasSavedStars, isUnlocked, nextLevel, recordStars, reloadProgress, starsFor, unlockAllEnabled } from './progress';
 import { beatBest, carryCap, createRun, powerTicks, isEndless, meters, reviveStillOpen, score, seconds, step, type InputLog, type RunState, type SimEvent } from './sim/run';
 import logoUrl from './assets/logo.png';
 import parcelUrl from './sprites/parcel.svg';
@@ -278,15 +286,23 @@ function startRun(cfg: LevelConfig, boosts: readonly BoostId[] = []) {
 }
 
 /**
- * Ads sit on breaks, never inside a run. A lose screen that offers a revive does not
- * also play a midgame ad (CrazyGames forbids combining the two). A rewarded ad that
- * already played this break suppresses the midgame too, so ads are never chained.
+ * Ads sit on breaks, never inside a run and never while moving between Shop, Rider,
+ * Get coins, or the other menus. A break that offers revive or double coins does not
+ * also play a midgame ad, even if the player skips the video (CrazyGames forbids
+ * combining the two). A rewarded ad that already played this break suppresses it too.
  */
 async function betweenRuns(go: () => void, withMidgame: boolean) {
   if (withMidgame && !rewardedThisBreak) {
     if (await requestAd('midgame')) track({ name: 'ad_watched', placement: 'midgame' });
   }
   go();
+}
+
+const NO_BREAK: AdBreak = { reviveOffered: false, doubleCoinsOffered: false, rewardedPlayed: false };
+
+/** Go to a screen. Midgame only when midgameOnLeave says this leave is a run break. */
+function openScreen(target: LeaveTarget, go: () => void, brk: AdBreak = NO_BREAK) {
+  void betweenRuns(go, midgameOnLeave(target, brk));
 }
 
 async function requestAd(kind: 'midgame' | 'rewarded'): Promise<boolean> {
@@ -411,9 +427,13 @@ function endRun() {
     const offerAdRevive = run.status === 'lost' && !run.revived && !rewardedThisBreak && portal.ads.rewardedAvailable();
     const offerCoinRevive = reviveStillOpen(run, false);
     const offerDouble = !payout.doubled && !rewardedThisBreak && run.coins > 0 && portal.ads.rewardedAvailable() && (won || endless);
-    // Revive and a midgame ad cannot share this break. Double-coins is optional;
-    // taking it sets rewardedThisBreak so Next / Retry will not play a second ad.
-    const withMidgame = !offerAdRevive;
+    // Revive, or a double-coins offer still on screen, occupies this break.
+    // Skipping the video must not fall through into a midgame ad.
+    const brk: AdBreak = {
+      reviveOffered: offerAdRevive,
+      doubleCoinsOffered: offerDouble,
+      rewardedPlayed: rewardedThisBreak,
+    };
     const note = adNote ? `<p class="ad-note">${adNote}</p>` : '';
     const video = offerAdRevive
       ? `<button class="btn blue" data-act="revive" aria-label="Watch a video to revive with one heart">${ico(playUrl)} Revive</button>`
@@ -449,13 +469,13 @@ function endRun() {
         ${coins}
         <button class="btn green" data-act="again" autofocus>${ico(retryUrl)} Ride again</button></div>`,
         {
-          menu: () => leave(showMenu),
+          menu: () => leave(() => openScreen('menu', showMenu)),
           revive: () => void onRevive(showResult),
           coins: () => {
             if (!resumeRevived('coins')) showResult();
           },
           double: () => void onDouble(showResult),
-          again: () => leave(() => void betweenRuns(() => startRun(cfg), withMidgame)),
+          again: () => leave(() => openScreen('again', () => startRun(cfg), brk)),
         },
         false,
         true,
@@ -481,14 +501,14 @@ function endRun() {
       <button class="btn green" data-act="again" ${next ? '' : 'autofocus'}>${ico(retryUrl)} Retry</button>
       ${next ? `<button class="btn green" data-act="next" autofocus>${ico(playUrl)} ${newCity ? next.city : 'Next'}</button>` : ''}</div>`,
       {
-        areas: () => leave(() => showAreas(cityOf(cfg))),
+        areas: () => leave(() => openScreen('areas', () => showAreas(cityOf(cfg)))),
         revive: () => void onRevive(showResult),
         coins: () => {
           if (!resumeRevived('coins')) showResult();
         },
         double: () => void onDouble(showResult),
-        again: () => leave(() => void betweenRuns(() => startRun(cfg), withMidgame)),
-        next: () => leave(() => void betweenRuns(() => next && showBrief(next), withMidgame)),
+        again: () => leave(() => openScreen('again', () => startRun(cfg), brk)),
+        next: () => leave(() => openScreen('next', () => next && showBrief(next), brk)),
       },
       false,
       true,
@@ -601,6 +621,19 @@ function markSeen() {
   if (!load('seenHow', false)) save('seenHow', true);
 }
 
+/** Coin packs are hidden on CrazyGames until a live PaymentService exists. */
+function storeOpen(): boolean {
+  return coinStoreVisible(portal.mode, payments.mode);
+}
+
+/** Saved balance. The + is the store entry, and it is omitted where the store is hidden. */
+function walletChip(corner: boolean): string {
+  const n = walletCoins();
+  const cls = corner ? 'chip wallet' : 'chip';
+  if (!storeOpen()) return `<span class="${cls}" aria-label="${n} coins saved">${ico(hudCoinUrl)} ${n}</span>`;
+  return `<button class="${cls} coin-chip" data-act="coins" aria-label="${n} coins saved. Get more">${ico(hudCoinUrl)} ${n} <b>+</b></button>`;
+}
+
 function showMenu() {
   const cur = currentLevel();
   const first = !load('seenHow', false);
@@ -608,7 +641,7 @@ function showMenu() {
   screen(
     `<img class="logo" src="${logoUrl}" alt="Rider Dash" width="600" height="406">
     <p class="tag">Deliver parcels across India, one neighbourhood at a time.</p>
-    <button class="chip wallet coin-chip" data-act="coins" aria-label="${walletCoins()} coins saved. Get more">${ico(hudCoinUrl)} ${walletCoins()} <b>+</b></button>
+    ${walletChip(true)}
     ${first ? `<ul class="how">
       <li><b>Swipe</b> or <b>tap</b> left and right to change lanes</li>
       <li><b>Swipe up</b> to jump potholes and speed breakers</li>
@@ -635,7 +668,7 @@ function showMenu() {
       },
       cities: () => {
         markSeen();
-        showCities();
+        openScreen('cities', showCities);
       },
       endless: () => {
         markSeen();
@@ -643,13 +676,13 @@ function showMenu() {
       },
       rider: () => {
         markSeen();
-        showRider();
+        openScreen('rider', () => showRider());
       },
       shop: () => {
         markSeen();
-        showShop();
+        openScreen('shop', showShop);
       },
-      coins: () => showCoins(showMenu),
+      coins: () => openScreen('coins', () => showCoins(showMenu)),
     },
   );
   // If the logo can't load (offline, a dropped connection), show the name as a title, not a broken image.
@@ -673,7 +706,7 @@ function showShop() {
       <p class="tip">The shop opens once you clear <b>${shopOpensAt().name}</b> in ${shopOpensAt().city}. Coins you collect until then are saved.</p>
       <p>${wallet}</p>
       <div class="col"><button class="btn green" data-act="back" autofocus>OK</button></div>`,
-      { back: showMenu },
+      { back: () => openScreen('menu', showMenu) },
     );
     return;
   }
@@ -686,13 +719,17 @@ function showShop() {
     return `<div class="shop-row"><img src="${POWER_ICONS[u.power]}" alt=""><span class="shop-text"><b>${u.name}</b><small>${u.desc}</small>${pips(level, MAX_UPGRADE)}</span>${button}</div>`;
   }).join('');
   const boosts = BOOSTS.map((b) => `<div class="shop-row"><img src="${POWER_ICONS[b.id]}" alt=""><span class="shop-text"><b>${b.name}</b><small>${b.desc}</small></span><span class="price">${b.price} ${ico(hudCoinUrl)}</span></div>`).join('');
-  const acts: Record<string, () => void> = { back: showMenu, rider: () => showRider(showShop), coins: () => showCoins(showShop) };
+  const acts: Record<string, () => void> = {
+    back: () => openScreen('menu', showMenu),
+    rider: () => openScreen('rider', () => showRider(showShop)),
+    coins: () => openScreen('coins', () => showCoins(showShop)),
+  };
   for (const u of UPGRADES) acts[`up-${u.power}`] = () => {
     if (buyUpgrade(u.power)) play('parcel');
     showShop();
   };
   screen(
-    `<div class="bar"><button class="btn small yellow" data-act="back" aria-label="Menu">${ico(backUrl)}</button><h2>Shop</h2><button class="chip coin-chip" data-act="coins" aria-label="${walletCoins()} coins. Get more">${ico(hudCoinUrl)} ${walletCoins()} <b>+</b></button></div>
+    `<div class="bar"><button class="btn small yellow" data-act="back" aria-label="Menu">${ico(backUrl)}</button><h2>Shop</h2>${walletChip(false)}</div>
     <h3 class="shop-head">Upgrades</h3>
     <p class="small-print">Each level makes the power-up last 20% longer.</p>
     <div class="shop-list">${rows}</div>
@@ -737,14 +774,21 @@ function showRider(back: () => void = showMenu) {
   }).join('');
   const tabs = PARTS.map((p) => `<button type="button" class="tab" data-tab="${p}" aria-pressed="${p === riderTab}" ${p === riderTab ? 'autofocus' : ''}>${PART_LABEL[p]}</button>`).join('');
   screen(
-    `<div class="bar"><button class="btn small yellow" data-act="back" aria-label="Back">${ico(backUrl)}</button><h2>Your rider</h2><button class="chip coin-chip" data-act="coins" aria-label="${walletCoins()} coins. Get more">${ico(hudCoinUrl)} ${walletCoins()} <b>+</b></button></div>
+    `<div class="bar"><button class="btn small yellow" data-act="back" aria-label="Back">${ico(backUrl)}</button><h2>Your rider</h2>${walletChip(false)}</div>
     <div class="rider-stage"><img class="rp" data-pose="front" alt="Your rider, from the front"><img class="rp" data-pose="back" alt="Your rider, from behind"></div>
     <p class="try-name" aria-live="polite"></p>
     <div class="tabs" role="tablist">${tabs}</div>
     <div class="look-grid">${cards}</div>
     <div class="offer" hidden></div>
     <div class="col"><button class="btn green" data-act="back">Done</button></div>`,
-    { back: () => { void prepareAvatar(colorsFor(avatarChoice())); back(); }, coins: () => showCoins(() => showRider(back)) },
+    {
+      back: () => {
+        void prepareAvatar(colorsFor(avatarChoice()));
+        // The shop and the menu are both browse screens, so neither plays an ad.
+        openScreen(back === showMenu ? 'menu' : 'shop', back);
+      },
+      coins: () => openScreen('coins', () => showCoins(() => showRider(back))),
+    },
     true,
   );
   const stage = (choice: AvatarChoice, label: string) => {
@@ -782,9 +826,11 @@ function showRider(back: () => void = showMenu) {
       return;
     }
     const short = (o.price ?? 0) > walletCoins();
+    const getCoins = short && storeOpen() ? `<button class="btn small gold" data-get>Get coins</button>` : '';
     offer.innerHTML = `<span>Trying on <b>${o.name}</b></span>
       <button class="btn small ${o.premium ? 'gold' : 'green'}" data-buy ${short ? 'hidden' : ''}>Buy · ${o.price} ${ico(hudCoinUrl)}</button>
-      ${short ? `<button class="btn small gold" data-get>Get coins</button><small>You have ${walletCoins()} of ${o.price}</small>` : ''}`;
+      ${getCoins}
+      ${short ? `<small>You have ${walletCoins()} of ${o.price}</small>` : ''}`;
     offer.querySelector<HTMLButtonElement>('[data-buy]')?.addEventListener('click', () => {
       if (!buyLook(riderTab, o)) return;
       play('parcel');
@@ -792,7 +838,7 @@ function showRider(back: () => void = showMenu) {
       void prepareAvatar(colorsFor(avatarChoice()));
       showRider(back);
     });
-    offer.querySelector<HTMLButtonElement>('[data-get]')?.addEventListener('click', () => showCoins(() => showRider(back)));
+    offer.querySelector<HTMLButtonElement>('[data-get]')?.addEventListener('click', () => openScreen('coins', () => showCoins(() => showRider(back))));
   }));
 }
 
@@ -814,6 +860,10 @@ const fmt = (n: number) => n.toLocaleString('en-IN');
 
 /** Buy coins with real money. Coins bought here spend like earned coins. */
 function showCoins(back: () => void = showMenu, note = '') {
+  if (!storeOpen()) {
+    back();
+    return;
+  }
   backdrop(currentLevel());
   const live = payments.available();
   const cards = COIN_PACKS.map((p, i) => `<div class="pack${p.tag ? ' tagged' : ''}">
@@ -1150,6 +1200,8 @@ muteBtn.addEventListener('click', (e) => {
   renderMute();
 });
 window.addEventListener('pointerdown', () => unlock(), { passive: true });
+// iOS Safari treats touchend as the gesture that may resume audio. pointerdown covers other browsers.
+window.addEventListener('touchend', () => unlock(), { passive: true });
 window.addEventListener('keydown', (e) => {
   unlock();
   if (e.repeat) return;
@@ -1170,7 +1222,7 @@ document.addEventListener('click', (e) => {
 });
 
 if (import.meta.env.DEV) {
-  attachDebug(true, window, {
+  attachDebug(import.meta.env.DEV, window, {
     get run() {
       return run;
     },
@@ -1185,7 +1237,16 @@ async function boot() {
   reloadProgress();
   reloadWallet();
   reloadShop();
-  payments = wantsTestPayments(location) ? testPayments(confirmTestPurchase) : noPayments();
+  const dev = import.meta.env.DEV;
+  configureUnlock(unlockQueryEnabled(location.search, portal.mode, dev));
+  payments = wantsTestPayments({
+    hostname: location.hostname,
+    search: location.search,
+    portal: portal.mode,
+    dev,
+  })
+    ? testPayments(confirmTestPurchase)
+    : noPayments();
   reloadAvatar();
   const fonts = document.fonts;
   await Promise.race([
@@ -1203,7 +1264,10 @@ async function boot() {
   portal.loadingStop();
   resize();
   track({ name: 'session_start' });
-  showMenu();
+  // First launch (no stars yet) rides Koramangala at once. A saved star, or ?unlock
+  // off the portal, keeps the menu.
+  if (shouldStartInGameplay(hasSavedStars(), unlockAllEnabled())) startRun(LEVELS[0]);
+  else showMenu();
   requestAnimationFrame(frame);
 }
 

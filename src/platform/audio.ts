@@ -178,10 +178,15 @@ function ensure(): AudioContext | null {
   return ctx;
 }
 
-/** Call from a click, tap, or key. Browsers ignore audio started any other way. */
+/**
+ * Call from a click, tap, or key. Browsers ignore audio started any other way.
+ * iOS Safari only resumes a context inside the gesture, so this stays synchronous.
+ * resume() rejects when the device has no audio output; that must not become an
+ * unhandled rejection. The next gesture tries again.
+ */
 export function unlock() {
   const audio = ensure();
   if (!audio) return;
-  if (audio.state === 'suspended') void audio.resume();
+  if (audio.state === 'suspended') void audio.resume().catch(() => {});
   if (canPlayAudio()) startMusic();
 }

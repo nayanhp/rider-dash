@@ -14,7 +14,7 @@ npm run build    # type-check + production build into dist/
 npm run zip      # production build + rider-dash-crazygames.zip (see CRAZYGAMES.md)
 ```
 
-Open `http://localhost:5173/?unlock` to play any level without clearing the ones before it.
+Open `http://localhost:5173/?unlock` to play any level without clearing the ones before it. That query is ignored when the game is running on CrazyGames.
 
 Controls: swipe or tap left/right to change lanes, swipe up to jump. Keyboard: ← → and ↑ / Space.
 Switching tabs or leaving the window pauses a run until you tap Resume. The speaker button mutes the music and effects; that choice is saved. The first neighbourhood shows steer, parcel, and DROP hints until you clear it.

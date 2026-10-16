@@ -45,7 +45,7 @@ A Subway Surfers-style 3D-perspective runner. You are a quick-commerce delivery 
 Later games reuse this codebase's platform pieces: Merge Fleet (levels + "+5 moves" ads) is game #2; Bag Pack and Route Rush are candidates.
 
 ## Current state (2026-10-16)
-Live demo: https://nayanhp.github.io/rider-dash/ (GitHub Pages; every push to `main` deploys after tests pass). Add `?unlock` to open every level, `?testpay` for free test coin purchases.
+Live demo: https://nayanhp.github.io/rider-dash/ (GitHub Pages; every push to `main` deploys after tests pass). Off CrazyGames, `?unlock` opens every level and `?testpay` enables free test coin purchases. Both are ignored on a CrazyGames production build. Localhost still uses test purchases.
 Built so far: 200 city levels; threats and a held brake (unlocks in Mumbai); power-ups; shop (upgrades, boosts, priced and premium looks incl. delivery box); city skylines; city threats (puddles, fog, construction zones, hot food, monkeys, trams, crowds); parcel thieves; coin store (real-money packs via `PaymentService`, test mode only). Per-phase details in `CHANGELOG.md`. Balance report: `npm run balance` → `BALANCE.md` (10 bot seeds per area; Bengaluru must stay ≥90% clear, first five areas 100%; tests enforce this).
 Key files: rules `src/sim/run.ts` (deterministic, no DOM); level generation `src/sim/config.ts` + `src/data/*.json`; screens `src/main.ts`; drawing `src/render/`; portal SDK `src/platform/crazygames.ts`; ads `src/platform/ads.ts`; payments `src/platform/payments.ts`; CrazyGames notes `CRAZYGAMES.md`.
 
@@ -55,22 +55,22 @@ Checked against docs.crazygames.com/requirements (intro, technical, ads, game-co
 **Already passing (keep it that way)**
 - Size: build is 7 files, ~270 KB (limits: 50 MB initial / 20 MB for mobile homepage, 250 MB total, 1,500 files). Relative paths only (`base: './'`; `npm run zip` refuses absolute paths).
 - SDK: init, `loadingStart/Stop`, `gameplayStart/Stop` (throttled), `happytime`; Data module saves (stars, coins, looks, upgrades); mute on `muteAudio`; works if the SDK is missing or blocked.
-- Ads: only through the SDK; midgame only at level transitions (Next/Retry), never on menu/shop buttons; game blocked and audio muted only while an ad actually plays; `adError` never rewards; rewarded buttons hidden with an adblocker or `adsDisabledBasicLaunch`; revive is once per run, never alongside a midgame on the same break; coin-revive is the non-ad alternative.
+- Ads: only through the SDK; midgame only at Retry / Next / Ride again, and not while a revive or double-coins offer is on that screen; never when entering or leaving Shop, Rider, Get coins, or the other menus; game blocked and audio muted only while an ad actually plays; `adError` never rewards; rewarded buttons hidden with an adblocker or `adsDisabledBasicLaunch`; revive is once per run; coin-revive is the non-ad alternative.
 - `user-select: none` with prefixes; safe-area padding; touch + mouse + keyboard; landscape and portrait both play; iOS audio resumes on a user gesture; no external links, logins or other ad networks; PEGI 12-safe content.
 
-**Must fix before submitting**
-1. **Hide the coin store on CrazyGames.** In-game purchases are invite-only (Xsolla) and not allowed in Basic Launch; a "Soon" store is a dead button. When `portal.mode` is `crazygames`, hide every coin-store entry point (the `+` on coin chips, "Get coins" buttons) until a real `PaymentService` exists. Keep it on GitHub Pages for demos.
-2. **Remove the debug hook in production.** `main.ts` calls `attachDebug(true, …)`, which exposes `window.rd` (the live run) to anyone's console. Pass `import.meta.env.DEV` instead.
-3. **Ignore `?unlock` and `?testpay` on CrazyGames** (only honour them off-portal or in dev builds), so a shared link can't unlock everything or grant coins.
-4. **Load closer to gameplay (Full Launch: "load directly into gameplay").** For a first-time player (no stars saved), skip the menu and start Koramangala straight after loading, with the first-run hints. Returning players keep the menu. Check the time to first `gameplayStart` stays well under 20 s on a slow phone.
-5. **Re-check ad pacing with the new screens.** No midgame when leaving to Shop / Rider / Get coins; rewarded "Double coins" never on the same break as a midgame (today it suppresses it only after it's watched; also skip the midgame while the double-coins offer is on screen, to be safe).
-6. **Safari pass.** Games that misbehave on Safari get disabled there: test menu, a run, pause, shop and the Rider screen (SVG pattern fills for premium looks) on iPhone Safari.
+**Done in code**
+- [x] 1. **Hide the coin store on CrazyGames.** When `portal.mode` is `crazygames`, the `+` on coin chips and every "Get coins" button stay hidden until `PaymentService.mode` is `live`. The saved balance still shows. GitHub Pages and local dev keep the store (Soon, or test purchases).
+- [x] 2. **Remove the debug hook in production.** `attachDebug` is called with `import.meta.env.DEV`, and only from inside that same dev check, so production builds do not put `window.rd` on the page.
+- [x] 3. **Ignore `?unlock` and `?testpay` on CrazyGames.** Honoured off-portal and in dev builds. A production portal link cannot open every neighbourhood or grant test coins. Localhost still uses test purchases.
+- [x] 4. **Load closer to gameplay.** A first-time player (no stars saved, and `?unlock` not in effect) starts Koramangala right after loading, with the in-run hints. A saved star, or `?unlock` where that query is honoured, keeps the menu.
+- [x] 5. **Ad pacing.** Shop, Rider, Get coins, Cities, Areas, and the menu never request a midgame, going in or out. Retry / Next / Ride again request one only when that break is not offering revive or double coins and has not already played a rewarded ad. Skipping double coins does not fall through into a midgame. See `CRAZYGAMES.md`.
+- [x] 6. **Safari pass.** Playwright WebKit, iPhone 13 emulation (not a physical iPhone or the iOS Simulator). Touch changes lanes, the first run and the menu fit, pause works, and premium pattern fills paint. Safe-area CSS is in place; the emulator reported no notch. Audio unlock runs on the gesture, but this WebKit build has no audio output device so the context stays suspended. See the changelog.
 
 **Nayan does these by hand (needs accounts or creative work)**
-7. **Covers, no borders, title as the only text, no icons:** landscape 1920×1080 (16:9), portrait 800×1200 (2:3), square 800×800 (1:1); consistent art across all three; rider and scooter as the hero.
-8. **Preview video:** 15–20 s, silent, no fast-forward, no black screens/bars or mouse cursor, first frame = the cover; two files, landscape 1080p 16:9 and portrait 1080p 2:3; ≤ 50 MB each.
-9. **Developer Portal:** create the game, upload `rider-dash-crazygames.zip` (`npm run zip`), set orientations (both), Progress Save = "Yes, using the Data Module", paste title/description/controls from `CRAZYGAMES.md` → "Paste-ready listing", then preview in the portal (QA tool) before submitting.
-10. **Later, if invited to in-game purchases:** follow `CRAZYGAMES.md` → "In-game purchases"; purchases need signed-in players and must stay hidden in the CrazyGames mobile app.
+- [ ] 7. **Covers, no borders, title as the only text, no icons:** landscape 1920×1080 (16:9), portrait 800×1200 (2:3), square 800×800 (1:1); consistent art across all three; rider and scooter as the hero.
+- [ ] 8. **Preview video:** 15–20 s, silent, no fast-forward, no black screens/bars or mouse cursor, first frame = the cover; two files, landscape 1080p 16:9 and portrait 1080p 2:3; ≤ 50 MB each.
+- [ ] 9. **Developer Portal:** create the game, upload `rider-dash-crazygames.zip` (`npm run zip`), set orientations (both), Progress Save = "Yes, using the Data Module", paste title/description/controls from `CRAZYGAMES.md` → "Paste-ready listing", then preview in the portal (QA tool) before submitting. Do not upload from an agent.
+- [ ] 10. **Later, if invited to in-game purchases:** follow `CRAZYGAMES.md` → "In-game purchases"; purchases need signed-in players and must stay hidden in the CrazyGames mobile app.
 
 **Gate after launch:** Basic Launch metrics decide promotion to Full Launch (see docs.crazygames.com/resources/basic-launch-metrics). Our own targets: day-1 retention ≥ 35%, average session ≥ 5 min.
 
