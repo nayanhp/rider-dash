@@ -1,5 +1,5 @@
 import './style.css';
-import { avatarChoice, colorsFor, reloadAvatar, setAvatarPart, AVATAR_OPTIONS, type AvatarOption, type AvatarPart } from './avatar';
+import { avatarChoice, colorsFor, optionFor, reloadAvatar, setAvatarPart, AVATAR_OPTIONS, PARTS, type AvatarChoice, type AvatarOption, type AvatarPart } from './avatar';
 import { BOOSTS, MAX_UPGRADE, UPGRADES, boostCost, buyLook, buyUpgrade, claimCityRewards, modsForRun, nextUpgradePrice, ownsLook, reloadShop, shopOpen, shopOpensAt, upgradeLevel, type BoostId } from './shop';
 import { attachDebug } from './debug';
 import { hintFor } from './hint';
@@ -8,11 +8,12 @@ import { nextHold, type Hold } from './pause';
 import { track } from './platform/analytics';
 import { loadUserMute, muteControl, play, toggleUserMute, unlock, type Sfx } from './platform/audio';
 import { bootPortal, type Portal } from './platform/crazygames';
+import { COIN_PACKS, noPayments, packTotal, testPayments, wantsTestPayments, type CoinPack, type PaymentService } from './platform/payments';
 import { load, save } from './platform/storage';
 import { loadSprites } from './render/art';
 import { Renderer } from './render/renderer';
 import { POWER_ICONS } from './render/art';
-import { frontPreviewUrl, PICKER_DRAW_PX, prepareAvatar, prepareRival } from './render/riderArt';
+import { poseUrl, prepareAvatar, prepareRival } from './render/riderArt';
 import playUrl from './sprites/ui-play.svg';
 import retryUrl from './sprites/ui-retry.svg';
 import menuUrl from './sprites/ui-menu.svg';
@@ -24,7 +25,7 @@ import rainUrl from './sprites/badge-rain.svg';
 import nightUrl from './sprites/badge-night.svg';
 import unlockUrl from './sprites/badge-city-unlock.svg';
 import { CITIES, ENDLESS, LEVELS, type City, type LevelConfig, type PowerKind, type TimedPower } from './sim/config';
-import { RunPayout, reloadWallet, walletCoins } from './wallet';
+import { RunPayout, addCoins, reloadWallet, walletCoins } from './wallet';
 import { cityCleared, cityOf, cityStars, cityUnlocked, currentLevel, isUnlocked, nextLevel, recordStars, reloadProgress, starsFor } from './progress';
 import { beatBest, carryCap, createRun, powerTicks, isEndless, meters, reviveStillOpen, score, seconds, step, type InputLog, type RunState, type SimEvent } from './sim/run';
 import logoUrl from './assets/logo.png';
@@ -266,6 +267,8 @@ function startRun(cfg: LevelConfig, boosts: readonly BoostId[] = []) {
   resultTracked = false;
   adNote = '';
   resetHudMotion();
+  // Fill the HUD now, so it is never blank if the run pauses before its first frame.
+  updateHud();
   last = performance.now();
   acc = 0;
   applyHold();
@@ -323,6 +326,8 @@ function resumeRevived(how: 'ad' | 'coins'): boolean {
   rewardedThisBreak = false;
   adNote = '';
   resetHudMotion();
+  // Fill the HUD now, so it is never blank if the run pauses before its first frame.
+  updateHud();
   last = performance.now();
   acc = 0;
   applyHold();
@@ -579,8 +584,11 @@ function screen(html: string, acts: Record<string, () => void>, wide = false, ri
     const fn = acts[b.dataset.act!];
     if (fn) b.onclick = fn;
   });
-  overlay.querySelector<HTMLElement>('[autofocus]')?.focus();
+  // Focus without scrolling, so tall panels (shop, rider) open at the top.
+  overlay.querySelector<HTMLElement>('[autofocus]')?.focus({ preventScroll: true });
   overlay.scrollTop = 0;
+  const panel = overlay.querySelector<HTMLElement>('.panel');
+  if (panel) panel.scrollTop = 0;
 }
 
 /** Show a level's road behind the menus. */
@@ -600,7 +608,7 @@ function showMenu() {
   screen(
     `<img class="logo" src="${logoUrl}" alt="Rider Dash" width="600" height="406">
     <p class="tag">Deliver parcels across India, one neighbourhood at a time.</p>
-    <span class="chip wallet" aria-label="${walletCoins()} coins saved">${ico(hudCoinUrl)} ${walletCoins()}</span>
+    <button class="chip wallet coin-chip" data-act="coins" aria-label="${walletCoins()} coins saved. Get more">${ico(hudCoinUrl)} ${walletCoins()} <b>+</b></button>
     ${first ? `<ul class="how">
       <li><b>Swipe</b> or <b>tap</b> left and right to change lanes</li>
       <li><b>Swipe up</b> to jump potholes and speed breakers</li>
@@ -641,6 +649,7 @@ function showMenu() {
         markSeen();
         showShop();
       },
+      coins: () => showCoins(showMenu),
     },
   );
 }
@@ -672,13 +681,13 @@ function showShop() {
     return `<div class="shop-row"><img src="${POWER_ICONS[u.power]}" alt=""><span class="shop-text"><b>${u.name}</b><small>${u.desc}</small>${pips(level, MAX_UPGRADE)}</span>${button}</div>`;
   }).join('');
   const boosts = BOOSTS.map((b) => `<div class="shop-row"><img src="${POWER_ICONS[b.id]}" alt=""><span class="shop-text"><b>${b.name}</b><small>${b.desc}</small></span><span class="price">${b.price} ${ico(hudCoinUrl)}</span></div>`).join('');
-  const acts: Record<string, () => void> = { back: showMenu, rider: showRider };
+  const acts: Record<string, () => void> = { back: showMenu, rider: () => showRider(showShop), coins: () => showCoins(showShop) };
   for (const u of UPGRADES) acts[`up-${u.power}`] = () => {
     if (buyUpgrade(u.power)) play('parcel');
     showShop();
   };
   screen(
-    `<div class="bar"><button class="btn small yellow" data-act="back" aria-label="Menu">${ico(backUrl)}</button><h2>Shop</h2>${wallet}</div>
+    `<div class="bar"><button class="btn small yellow" data-act="back" aria-label="Menu">${ico(backUrl)}</button><h2>Shop</h2><button class="chip coin-chip" data-act="coins" aria-label="${walletCoins()} coins. Get more">${ico(hudCoinUrl)} ${walletCoins()} <b>+</b></button></div>
     <h3 class="shop-head">Upgrades</h3>
     <p class="small-print">Each level makes the power-up last 20% longer.</p>
     <div class="shop-list">${rows}</div>
@@ -691,74 +700,144 @@ function showShop() {
   );
 }
 
-function swatchRow(part: AvatarPart): string {
-  const selected = avatarChoice()[part];
-  return AVATAR_OPTIONS[part].map((opt) => {
-    const mine = ownsLook(part, opt);
-    const label = mine ? opt.name : opt.reward ? `${opt.name}, unlocks with a city` : `${opt.name}, ${opt.price} coins`;
-    return `<button type="button" class="swatch${mine ? '' : ' locked'}" data-part="${part}" data-id="${opt.id}" aria-pressed="${selected === opt.id}" aria-label="${label}" style="background:${opt.color}">${mine ? '' : ico(lockUrl, 'swatch-lock')}</button>`;
-  }).join('');
+const PART_LABEL: Record<AvatarPart, string> = { jacket: 'Jacket', helmet: 'Helmet', box: 'Box', skin: 'Skin' };
+let riderTab: AvatarPart = 'jacket';
+
+/** The rider wearing `choice`, from the front (or the back, where the box shows). */
+const lookUrl = (choice: AvatarChoice, pose: 'front' | 'back') => poseUrl(pose, colorsFor(choice));
+
+function lookStatus(part: AvatarPart, o: AvatarOption, wearing: boolean): string {
+  if (wearing) return '<span class="look-state on">Wearing</span>';
+  if (ownsLook(part, o)) return '<span class="look-state">Owned</span>';
+  if (o.reward) return `<span class="look-state">${ico(lockUrl, 'mini-lock')} ${CITIES.find((c) => c.id === o.reward)?.name ?? 'City'}</span>`;
+  return `<span class="look-price">${ico(hudCoinUrl)} ${o.price}</span>`;
 }
 
-/** The line under the swatches for a look you don't own yet: buy it, or which city gives it. */
-function lookOffer(part: AvatarPart, opt: AvatarOption): string {
-  if (opt.reward) {
-    const city = CITIES.find((c) => c.id === opt.reward)?.name ?? 'a city';
-    return `<span><b>${opt.name}</b>: clear ${city} to unlock it free.</span>`;
-  }
-  const short = (opt.price ?? 0) > walletCoins();
-  return `<span><b>${opt.name}</b></span><button class="btn small green" data-buy="${part}:${opt.id}" ${short ? 'disabled' : ''}>Buy · ${opt.price} ${ico(hudCoinUrl)}</button>${short ? `<small>You have ${walletCoins()}</small>` : ''}`;
-}
-
-function showRider() {
+/**
+ * Pick a look. Every card shows your rider wearing it. Tapping any look tries it on in the big
+ * preview; owned looks are worn at once, others offer a purchase (or name the city that gives it).
+ */
+function showRider(back: () => void = showMenu) {
   backdrop(currentLevel());
-  const paint = () => {
-    const colors = colorsFor(avatarChoice());
-    const preview = overlay.querySelector<HTMLImageElement>('.rider-preview');
-    if (preview) preview.src = frontPreviewUrl(colors);
-    overlay.querySelectorAll<HTMLButtonElement>('.swatch').forEach((b) => {
-      const part = b.dataset.part as AvatarPart;
-      b.setAttribute('aria-pressed', String(avatarChoice()[part] === b.dataset.id));
-    });
-    void prepareAvatar(colors);
-  };
+  let trying: AvatarChoice = { ...avatarChoice() };
+  const worn = avatarChoice();
+  const cards = AVATAR_OPTIONS[riderTab].map((o) => {
+    const preview = lookUrl({ ...worn, [riderTab]: o.id }, riderTab === 'box' ? 'back' : 'front');
+    const wearing = worn[riderTab] === o.id;
+    return `<button type="button" class="look-card${o.premium ? ' premium' : ''}${ownsLook(riderTab, o) ? '' : ' locked'}" data-look="${o.id}" aria-pressed="${wearing}" aria-label="${o.name}${o.premium ? ', premium' : ''}">
+      ${o.premium ? '<span class="premium-tag">Premium</span>' : ''}
+      <img src="${preview}" alt="" width="72" height="90">
+      <span class="look-name">${o.name}</span>${lookStatus(riderTab, o, wearing)}
+    </button>`;
+  }).join('');
+  const tabs = PARTS.map((p) => `<button type="button" class="tab" data-tab="${p}" aria-pressed="${p === riderTab}" ${p === riderTab ? 'autofocus' : ''}>${PART_LABEL[p]}</button>`).join('');
   screen(
-    `<div class="bar"><button class="btn small yellow" data-act="back" aria-label="Menu">${ico(backUrl)}</button><h2>Your rider</h2><span></span></div>
-    <img class="rider-preview" alt="Your rider, from the front" width="${PICKER_DRAW_PX}" height="${PICKER_DRAW_PX * 160 / 128}" style="width:${PICKER_DRAW_PX}px">
-    <p class="small-print">Jacket, helmet and skin. The scooter stays red. ${ico(hudCoinUrl)} ${walletCoins()}</p>
+    `<div class="bar"><button class="btn small yellow" data-act="back" aria-label="Back">${ico(backUrl)}</button><h2>Your rider</h2><button class="chip coin-chip" data-act="coins" aria-label="${walletCoins()} coins. Get more">${ico(hudCoinUrl)} ${walletCoins()} <b>+</b></button></div>
+    <div class="rider-stage"><img class="rp" data-pose="front" alt="Your rider, from the front"><img class="rp" data-pose="back" alt="Your rider, from behind"></div>
+    <p class="try-name" aria-live="polite"></p>
+    <div class="tabs" role="tablist">${tabs}</div>
+    <div class="look-grid">${cards}</div>
     <div class="offer" hidden></div>
-    <fieldset class="part"><legend>Jacket</legend><div class="swatches">${swatchRow('jacket')}</div></fieldset>
-    <fieldset class="part"><legend>Helmet</legend><div class="swatches">${swatchRow('helmet')}</div></fieldset>
-    <fieldset class="part"><legend>Skin</legend><div class="swatches">${swatchRow('skin')}</div></fieldset>
-    <div class="col"><button class="btn green" data-act="back" autofocus>Done</button></div>`,
-    { back: showMenu },
+    <div class="col"><button class="btn green" data-act="back">Done</button></div>`,
+    { back: () => { void prepareAvatar(colorsFor(avatarChoice())); back(); }, coins: () => showCoins(() => showRider(back)) },
+    true,
   );
-  overlay.querySelectorAll<HTMLButtonElement>('.swatch').forEach((b) => {
-    b.onclick = () => {
-      const part = b.dataset.part as AvatarPart;
-      const id = b.dataset.id;
-      if (!id) return;
-      const opt = AVATAR_OPTIONS[part].find((o) => o.id === id);
-      if (!opt) return;
-      const offer = overlay.querySelector<HTMLElement>('.offer');
-      if (!ownsLook(part, opt)) {
-        if (!offer) return;
-        offer.innerHTML = lookOffer(part, opt);
-        offer.hidden = false;
-        offer.querySelector<HTMLButtonElement>('[data-buy]')?.addEventListener('click', () => {
-          if (!buyLook(part, opt)) return;
-          play('parcel');
-          setAvatarPart(part, id);
-          showRider();
-        });
-        return;
-      }
-      if (offer) offer.hidden = true;
-      setAvatarPart(part, id);
-      paint();
-    };
+  const stage = (choice: AvatarChoice, label: string) => {
+    overlay.querySelectorAll<HTMLImageElement>('.rp').forEach((img) => (img.src = lookUrl(choice, img.dataset.pose as 'front' | 'back')));
+    const name = overlay.querySelector<HTMLElement>('.try-name');
+    if (name) name.innerHTML = label;
+  };
+  const opt = (id: string) => AVATAR_OPTIONS[riderTab].find((o) => o.id === id)!;
+  stage(trying, optionFor(riderTab, worn[riderTab]).name);
+  overlay.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => (b.onclick = () => {
+    riderTab = b.dataset.tab as AvatarPart;
+    showRider(back);
+  }));
+  overlay.querySelectorAll<HTMLButtonElement>('[data-look]').forEach((b) => (b.onclick = () => {
+    const o = opt(b.dataset.look!);
+    trying = { ...avatarChoice(), [riderTab]: o.id };
+    stage(trying, `${o.name}${o.premium ? ' <span class="premium-tag inline">Premium</span>' : ''}`);
+    const offer = overlay.querySelector<HTMLElement>('.offer')!;
+    if (ownsLook(riderTab, o)) {
+      offer.hidden = true;
+      setAvatarPart(riderTab, o.id);
+      void prepareAvatar(colorsFor(avatarChoice()));
+      overlay.querySelectorAll<HTMLButtonElement>('[data-look]').forEach((x) => {
+        const on = x.dataset.look === o.id;
+        x.setAttribute('aria-pressed', String(on));
+        const state = x.querySelector('.look-state, .look-price');
+        if (state && ownsLook(riderTab, opt(x.dataset.look!))) state.outerHTML = lookStatus(riderTab, opt(x.dataset.look!), on);
+      });
+      return;
+    }
+    offer.hidden = false;
+    if (o.reward) {
+      const city = CITIES.find((c) => c.id === o.reward)?.name ?? 'a city';
+      offer.innerHTML = `<span>Trying on <b>${o.name}</b>. Clear ${city} to unlock it free.</span>`;
+      return;
+    }
+    const short = (o.price ?? 0) > walletCoins();
+    offer.innerHTML = `<span>Trying on <b>${o.name}</b></span>
+      <button class="btn small ${o.premium ? 'gold' : 'green'}" data-buy ${short ? 'hidden' : ''}>Buy · ${o.price} ${ico(hudCoinUrl)}</button>
+      ${short ? `<button class="btn small gold" data-get>Get coins</button><small>You have ${walletCoins()} of ${o.price}</small>` : ''}`;
+    offer.querySelector<HTMLButtonElement>('[data-buy]')?.addEventListener('click', () => {
+      if (!buyLook(riderTab, o)) return;
+      play('parcel');
+      setAvatarPart(riderTab, o.id);
+      void prepareAvatar(colorsFor(avatarChoice()));
+      showRider(back);
+    });
+    offer.querySelector<HTMLButtonElement>('[data-get]')?.addEventListener('click', () => showCoins(() => showRider(back)));
+  }));
+}
+
+/** In test mode, the player confirms each fake purchase. Resolves true to go ahead. */
+function confirmTestPurchase(pack: CoinPack): Promise<boolean> {
+  return new Promise((resolve) => {
+    screen(
+      `<h2>Test purchase</h2>
+      <p>Add <b>${packTotal(pack).toLocaleString('en-IN')}</b> coins (${pack.name}, ${pack.price})?</p>
+      <p class="test-note">Test mode: no money is charged.</p>
+      <div class="row"><button class="btn yellow" data-act="no">Cancel</button><button class="btn green" data-act="yes" autofocus>Confirm</button></div>`,
+      { no: () => resolve(false), yes: () => resolve(true) },
+    );
   });
-  paint();
+}
+
+let payments: PaymentService = noPayments();
+const fmt = (n: number) => n.toLocaleString('en-IN');
+
+/** Buy coins with real money. Coins bought here spend like earned coins. */
+function showCoins(back: () => void = showMenu, note = '') {
+  backdrop(currentLevel());
+  const live = payments.available();
+  const cards = COIN_PACKS.map((p, i) => `<div class="pack${p.tag ? ' tagged' : ''}">
+      ${p.tag ? `<span class="pack-tag">${p.tag}</span>` : ''}
+      <div class="pack-coins" aria-hidden="true">${Array.from({ length: i + 1 }, () => ico(hudCoinUrl, 'stack-coin')).join('')}</div>
+      <b class="pack-amount">${fmt(p.coins)}</b>
+      ${p.bonus ? `<span class="pack-bonus">+${fmt(p.bonus)} bonus</span>` : '<span class="pack-bonus none">&nbsp;</span>'}
+      <button class="btn small gold" data-pack="${p.id}" ${live ? '' : 'disabled'}>${live ? payments.priceLabel(p) : 'Soon'}</button>
+    </div>`).join('');
+  screen(
+    `<div class="bar"><button class="btn small yellow" data-act="back" aria-label="Back">${ico(backUrl)}</button><h2>Get coins</h2><span class="chip">${ico(hudCoinUrl)} ${fmt(walletCoins())}</span></div>
+    ${payments.mode === 'test' ? '<p class="test-note">Test mode: purchases are free and only for trying the store.</p>' : ''}
+    ${live ? '' : '<p class="tip">Coin packs are coming soon. Until then, every coin comes from riding.</p>'}
+    ${note ? `<p class="unlock"><span>${note}</span></p>` : ''}
+    <div class="pack-grid">${cards}</div>
+    <p class="small-print">Coins spend on upgrades, boosts and rider looks.</p>
+    <div class="col"><button class="btn green" data-act="back" autofocus>Done</button></div>`,
+    { back },
+    true,
+  );
+  overlay.querySelectorAll<HTMLButtonElement>('[data-pack]').forEach((b) => (b.onclick = async () => {
+    const pack = COIN_PACKS.find((p) => p.id === b.dataset.pack)!;
+    const result = await payments.buy(pack);
+    if (!result.ok) return showCoins(back, result.code === 'cancelled' ? '' : 'The purchase did not go through. No coins were charged.');
+    addCoins(packTotal(pack));
+    track({ name: 'coin_purchase', pack: pack.id, coins: packTotal(pack), mode: payments.mode });
+    play('clear');
+    showCoins(back, `+${fmt(packTotal(pack))} coins added.`);
+  }));
 }
 
 function showCities() {
@@ -1099,6 +1178,7 @@ async function boot() {
   reloadProgress();
   reloadWallet();
   reloadShop();
+  payments = wantsTestPayments(location) ? testPayments(confirmTestPurchase) : noPayments();
   reloadAvatar();
   const fonts = document.fonts;
   await Promise.race([

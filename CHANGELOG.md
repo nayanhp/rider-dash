@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.14.0 — 2026-10-16 · Rider previews, premium looks, coin store
+
+- Rider screen rebuilt: a big front-and-back preview, tabs for jacket / helmet / box / skin,
+  and a card per look showing your rider wearing it. Tap any look to try it on, owned or not;
+  owned looks are worn at once, others offer Buy (or "Get coins" when short, or name the city).
+- Delivery box is now customisable; it is what you see most from behind during a run.
+- Premium looks with finishes, not flat colours: racing stripes, sunset and neon gradients,
+  royal gold and chrome metallics, chequered flag, and tiffin steel / galaxy / festive / chequer
+  boxes. Premium cards have a gold frame, a PREMIUM ribbon and a slow shimmer (off with reduced motion).
+- Coin store ("Get coins", from the + on any coin chip): four packs, 1,000 to 26,000 coins
+  (₹49–₹699 display prices). Bought coins spend like earned coins. Purchases go through a new
+  `PaymentService`; test mode on localhost or `?testpay` (no money moves), "Soon" elsewhere until
+  a provider is connected. CrazyGames steps are in CRAZYGAMES.md.
+- Fix: the HUD was blank if a run paused before its first frame.
+- Tall panels (shop, rider) open at the top instead of scrolled to Done. 121 tests.
+
 ## 0.13.0 — 2026-10-16 · Parcel thieves (Phase 4c)
 
 - From Hyderabad area 6 (Madhapur, with a "New:" tip) onward, a rival rider sometimes comes for

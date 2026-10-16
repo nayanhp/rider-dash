@@ -10,7 +10,8 @@ export type AnalyticsEvent =
   | { name: 'hit'; level: string; kind: string }
   | { name: 'revive_offer'; level: string }
   | { name: 'ad_watched'; placement: string }
-  | { name: 'endless_end'; score: number };
+  | { name: 'endless_end'; score: number }
+  | { name: 'coin_purchase'; pack: string; coins: number; mode: string };
 
 export interface AnalyticsSink {
   send(event: AnalyticsEvent & { playerId: string; at: number }): void;

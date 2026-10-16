@@ -2,18 +2,90 @@
   "comment": "Coins are only earned by playing. unlockAfter is the global area index that must be cleared before the shop opens (4 = BTM Layout, Bengaluru area 5).",
   "unlockAfter": 4,
   "upgrades": {
-    "prices": [100, 250, 500, 1000, 2000],
+    "prices": [
+      100,
+      250,
+      500,
+      1000,
+      2000
+    ],
     "stepPerLevel": 0.2,
     "items": [
-      { "power": "magnet", "name": "Magnet", "desc": "Pulls coins for longer" },
-      { "power": "net", "name": "Parcel net", "desc": "Scoops parcels for longer" },
-      { "power": "nitro", "name": "Nitro", "desc": "Burns for longer" },
-      { "power": "double", "name": "2× coins", "desc": "Doubles for longer" }
+      {
+        "power": "magnet",
+        "name": "Magnet",
+        "desc": "Pulls coins for longer"
+      },
+      {
+        "power": "net",
+        "name": "Parcel net",
+        "desc": "Scoops parcels for longer"
+      },
+      {
+        "power": "nitro",
+        "name": "Nitro",
+        "desc": "Burns for longer"
+      },
+      {
+        "power": "double",
+        "name": "2× coins",
+        "desc": "Doubles for longer"
+      }
     ]
   },
   "boosts": [
-    { "id": "helmet", "name": "Helmet", "desc": "Start with a safety helmet", "price": 75 },
-    { "id": "nitro", "name": "Nitro start", "desc": "Start with a nitro burst", "price": 60 },
-    { "id": "heart", "name": "Extra heart", "desc": "Start with 4 hearts", "price": 120 }
-  ]
+    {
+      "id": "helmet",
+      "name": "Helmet",
+      "desc": "Start with a safety helmet",
+      "price": 75
+    },
+    {
+      "id": "nitro",
+      "name": "Nitro start",
+      "desc": "Start with a nitro burst",
+      "price": 60
+    },
+    {
+      "id": "heart",
+      "name": "Extra heart",
+      "desc": "Start with 4 hearts",
+      "price": 120
+    }
+  ],
+  "coinPacks": {
+    "comment": "Real-money coin packs. price is the display fallback; a live payment provider shows its own localised price. Coins bought here spend like earned coins.",
+    "packs": [
+      {
+        "id": "pouch",
+        "name": "Pouch of coins",
+        "coins": 1000,
+        "bonus": 0,
+        "price": "₹49"
+      },
+      {
+        "id": "bag",
+        "name": "Bag of coins",
+        "coins": 3000,
+        "bonus": 500,
+        "price": "₹129",
+        "tag": "Popular"
+      },
+      {
+        "id": "crate",
+        "name": "Crate of coins",
+        "coins": 8000,
+        "bonus": 2000,
+        "price": "₹299"
+      },
+      {
+        "id": "truck",
+        "name": "Truckload",
+        "coins": 20000,
+        "bonus": 6000,
+        "price": "₹699",
+        "tag": "Best value"
+      }
+    ]
+  }
 }

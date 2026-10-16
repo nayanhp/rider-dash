@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  AVATAR_OPTIONS,
   DEFAULT_CHOICE,
   avatarChoice,
   colorsFor,
@@ -24,10 +25,11 @@ beforeEach(() => {
 
 describe('avatar choice', () => {
   it('defaults to the red jacket, yellow helmet and medium skin baked into the kit', () => {
-    expect(DEFAULT_CHOICE).toEqual({ jacket: 'red', helmet: 'yellow', skin: 'medium' });
+    expect(DEFAULT_CHOICE).toEqual({ jacket: 'red', helmet: 'yellow', box: 'yellow', skin: 'medium' });
     expect(colorsFor(DEFAULT_CHOICE)).toEqual({
       jacket: '#FF5A4E',
       helmet: '#FFCC2E',
+      box: '#FFCC2E',
       skin: '#D4A574',
     });
     expect(avatarChoice()).toEqual(DEFAULT_CHOICE);
@@ -38,6 +40,7 @@ describe('avatar choice', () => {
     expect(normalizeChoice({ jacket: 'nope', helmet: 'white', skin: 'deep' })).toEqual({
       jacket: 'red',
       helmet: 'white',
+      box: 'yellow',
       skin: 'deep',
     });
     expect(normalizeChoice('red')).toEqual(DEFAULT_CHOICE);
@@ -46,9 +49,9 @@ describe('avatar choice', () => {
   it('saves ids, and a later read survives a storage swap', () => {
     setAvatarPart('jacket', 'teal');
     setAvatarPart('helmet', 'magenta');
-    expect(avatarChoice()).toEqual({ jacket: 'teal', helmet: 'magenta', skin: 'medium' });
+    expect(avatarChoice()).toEqual({ jacket: 'teal', helmet: 'magenta', box: 'yellow', skin: 'medium' });
     reloadAvatar();
-    expect(avatarChoice()).toEqual({ jacket: 'teal', helmet: 'magenta', skin: 'medium' });
+    expect(avatarChoice()).toEqual({ jacket: 'teal', helmet: 'magenta', box: 'yellow', skin: 'medium' });
     expect(colorsFor(avatarChoice()).jacket).toBe('#2BB8A8');
   });
 });
@@ -65,7 +68,7 @@ describe('rider tint', () => {
   });
 
   it('recolours only the jacket, helmet and skin groups', () => {
-    const next = { jacket: '#2BB8A8', helmet: '#E85A9B', skin: '#A66B3D' };
+    const next = { jacket: '#2BB8A8', helmet: '#E85A9B', skin: '#A66B3D', box: '#FFCC2E' };
     for (const svg of [RIDER_SOURCES.back, RIDER_SOURCES.left, RIDER_SOURCES.right, RIDER_SOURCES.front]) {
       const tinted = tintRiderSvg(svg, next);
       expect(tinted).toContain('id="jacket" data-role="jacket" fill="#2BB8A8" stroke="#2BB8A8"');
@@ -93,5 +96,31 @@ describe('rider tint', () => {
     expect(RIDER_SOURCES.front).not.toBe(RIDER_SOURCES.back);
     expect(PICKER_DRAW_PX).toBeGreaterThanOrEqual(96);
     expect(PICKER_DRAW_PX).toBeLessThanOrEqual(128);
+  });
+});
+
+describe('premium finishes', () => {
+  it('fills styled parts from SVG defs and recolours the box from every angle', () => {
+    const colors = colorsFor({ jacket: 'gold', helmet: 'checker', box: 'galaxy', skin: 'medium' });
+    for (const svg of Object.values(RIDER_SOURCES)) {
+      const tinted = tintRiderSvg(svg, colors);
+      expect(tinted).toContain('<defs>');
+      expect(tinted).toContain('fill="url(#rd-jacket)" stroke="url(#rd-jacket)"');
+      expect(tinted).toContain('id="helmet" data-role="helmet" fill="url(#rd-helmet)"');
+      expect(tinted).toMatch(/id="box"><rect[^>]*fill="url\(#rd-box\)"/);
+      expect(tinted).toContain('<pattern id="rd-helmet"');
+      expect(tinted).toContain('<linearGradient id="rd-jacket"');
+    }
+  });
+
+  it('marks every premium option with a style and a price', () => {
+    for (const part of ['jacket', 'helmet', 'box', 'skin'] as const) {
+      for (const o of AVATAR_OPTIONS[part]) {
+        if (o.premium) {
+          expect(o.style).toBeDefined();
+          expect(o.price).toBeGreaterThanOrEqual(600);
+        }
+      }
+    }
   });
 });

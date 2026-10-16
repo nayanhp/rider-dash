@@ -108,3 +108,13 @@ No privacy-policy link is required for this build: nothing is sent to our own an
 - No external links, no cross-promo, no in-game fullscreen button, no banner ads.
 - English only. PEGI-12 tone: a scooter, traffic, and a cow. No account login of our own.
 - Chrome, Firefox, and Safari share one code path (pointer events, canvas 2D, no engine-specific audio). Safari on this machine was not available to launch; the build does not use APIs those browsers disagree on.
+
+## In-game purchases (coin packs)
+
+CrazyGames supports in-game purchases through Xsolla, but only by invitation, and only for signed-in players. The game already routes purchases through `PaymentService` (`src/platform/payments.ts`); off CrazyGames and until the invite, it uses `noPayments()` and the store shows "Soon". To go live:
+
+1. Ask CrazyGames for in-game purchases. They set up the Xsolla token method and give you an Xsolla project ID.
+2. In Xsolla Publisher Account, create the four coin packs from `src/data/shop.json` → `coinPacks` as virtual items.
+3. Add a `PaymentService` adapter: get a token with `SDK.user.getXsollaUserToken()`, create the order through Xsolla's Shop Builder API, open Pay Station, then grant coins only after the order is confirmed through Xsolla Inventory or an `order_paid` webhook. Call `SDK.analytics.trackOrder("xsolla", order)` on success.
+4. Hide the store for guests and inside the CrazyGames mobile app (Google Play / Apple builds must not show external payments).
+5. Test with sandbox orders from the Developer Portal preview, then turn sandbox off before submitting.

@@ -1,33 +1,335 @@
 {
-  "comment": "Options without a price or reward are free. price is in coins. reward names the city whose last area unlocks it.",
-  "default": { "jacket": "red", "helmet": "yellow", "skin": "medium" },
+  "comment": "Options without a price or reward are free. price is in coins. reward names the city whose last area unlocks it. premium options use a style (gradient, metal, stripes, checker, galaxy) instead of a flat colour; color is the swatch fallback.",
+  "default": {
+    "jacket": "red",
+    "helmet": "yellow",
+    "skin": "medium",
+    "box": "yellow"
+  },
   "jacket": [
-    { "id": "red", "name": "Kerb red", "color": "#FF5A4E" },
-    { "id": "teal", "name": "Teal", "color": "#2BB8A8" },
-    { "id": "indigo", "name": "Indigo", "color": "#4A5BD9" },
-    { "id": "orange", "name": "Marigold", "color": "#FF9F1A", "price": 150 },
-    { "id": "green", "name": "Leaf green", "color": "#5DD039", "price": 200 },
-    { "id": "purple", "name": "Purple", "color": "#8E44FF", "price": 300 },
-    { "id": "black", "name": "Night black", "color": "#2A2F5A", "price": 500 },
-    { "id": "raincoat", "name": "Mumbai raincoat", "color": "#F2C230", "reward": "mumbai" },
-    { "id": "maroon", "name": "Delhi winter maroon", "color": "#8A2A3B", "reward": "delhi" },
-    { "id": "monsoon", "name": "Pune monsoon green", "color": "#2E8B57", "reward": "pune" },
-    { "id": "kite", "name": "Ahmedabad kite pink", "color": "#FF5FA2", "reward": "ahmedabad" }
+    {
+      "id": "red",
+      "name": "Kerb red",
+      "color": "#FF5A4E"
+    },
+    {
+      "id": "teal",
+      "name": "Teal",
+      "color": "#2BB8A8"
+    },
+    {
+      "id": "indigo",
+      "name": "Indigo",
+      "color": "#4A5BD9"
+    },
+    {
+      "id": "orange",
+      "name": "Marigold",
+      "color": "#FF9F1A",
+      "price": 150
+    },
+    {
+      "id": "green",
+      "name": "Leaf green",
+      "color": "#5DD039",
+      "price": 200
+    },
+    {
+      "id": "purple",
+      "name": "Purple",
+      "color": "#8E44FF",
+      "price": 300
+    },
+    {
+      "id": "black",
+      "name": "Night black",
+      "color": "#2A2F5A",
+      "price": 500
+    },
+    {
+      "id": "raincoat",
+      "name": "Mumbai raincoat",
+      "color": "#F2C230",
+      "reward": "mumbai"
+    },
+    {
+      "id": "maroon",
+      "name": "Delhi winter maroon",
+      "color": "#8A2A3B",
+      "reward": "delhi"
+    },
+    {
+      "id": "monsoon",
+      "name": "Pune monsoon green",
+      "color": "#2E8B57",
+      "reward": "pune"
+    },
+    {
+      "id": "kite",
+      "name": "Ahmedabad kite pink",
+      "color": "#FF5FA2",
+      "reward": "ahmedabad"
+    },
+    {
+      "id": "racing",
+      "name": "Racing stripe",
+      "color": "#FF5A4E",
+      "premium": true,
+      "style": {
+        "kind": "stripes",
+        "colors": [
+          "#FF5A4E",
+          "#FFFAF0"
+        ]
+      },
+      "price": 800
+    },
+    {
+      "id": "sunset",
+      "name": "Sunset",
+      "color": "#FF9F1A",
+      "premium": true,
+      "style": {
+        "kind": "gradient",
+        "colors": [
+          "#FF9F1A",
+          "#FF5FA2"
+        ]
+      },
+      "price": 900
+    },
+    {
+      "id": "neon",
+      "name": "Neon night",
+      "color": "#8E44FF",
+      "premium": true,
+      "style": {
+        "kind": "gradient",
+        "colors": [
+          "#8E44FF",
+          "#2BD9FF"
+        ]
+      },
+      "price": 1200
+    },
+    {
+      "id": "gold",
+      "name": "Royal gold",
+      "color": "#E8B530",
+      "premium": true,
+      "style": {
+        "kind": "metal",
+        "colors": [
+          "#E8B530",
+          "#FFF3B0",
+          "#A87A10"
+        ]
+      },
+      "price": 2000
+    }
   ],
   "helmet": [
-    { "id": "yellow", "name": "Parcel yellow", "color": "#FFCC2E" },
-    { "id": "white", "name": "White", "color": "#F5F5F5" },
-    { "id": "magenta", "name": "Magenta", "color": "#E85A9B" },
-    { "id": "sky", "name": "Sky blue", "color": "#4FB3F6", "price": 150 },
-    { "id": "lime", "name": "Lime", "color": "#B6E32C", "price": 250 },
-    { "id": "chrome", "name": "Chrome", "color": "#C9CED6", "price": 600 },
-    { "id": "hardhat", "name": "Hyderabad hard hat", "color": "#FF7A1A", "reward": "hyderabad" },
-    { "id": "marina", "name": "Chennai marina blue", "color": "#1F6FB2", "reward": "chennai" },
-    { "id": "taxi", "name": "Kolkata taxi yellow", "color": "#FFD400", "reward": "kolkata" }
+    {
+      "id": "yellow",
+      "name": "Parcel yellow",
+      "color": "#FFCC2E"
+    },
+    {
+      "id": "white",
+      "name": "White",
+      "color": "#F5F5F5"
+    },
+    {
+      "id": "magenta",
+      "name": "Magenta",
+      "color": "#E85A9B"
+    },
+    {
+      "id": "sky",
+      "name": "Sky blue",
+      "color": "#4FB3F6",
+      "price": 150
+    },
+    {
+      "id": "lime",
+      "name": "Lime",
+      "color": "#B6E32C",
+      "price": 250
+    },
+    {
+      "id": "chrome",
+      "name": "Chrome",
+      "color": "#C9CED6",
+      "price": 600,
+      "premium": true,
+      "style": {
+        "kind": "metal",
+        "colors": [
+          "#AEB4BE",
+          "#FFFFFF",
+          "#6E7480"
+        ]
+      }
+    },
+    {
+      "id": "hardhat",
+      "name": "Hyderabad hard hat",
+      "color": "#FF7A1A",
+      "reward": "hyderabad"
+    },
+    {
+      "id": "marina",
+      "name": "Chennai marina blue",
+      "color": "#1F6FB2",
+      "reward": "chennai"
+    },
+    {
+      "id": "taxi",
+      "name": "Kolkata taxi yellow",
+      "color": "#FFD400",
+      "reward": "kolkata"
+    },
+    {
+      "id": "flame",
+      "name": "Flame",
+      "color": "#FF3B2E",
+      "premium": true,
+      "style": {
+        "kind": "gradient",
+        "colors": [
+          "#FF3B2E",
+          "#FFD23F"
+        ]
+      },
+      "price": 900
+    },
+    {
+      "id": "checker",
+      "name": "Chequered flag",
+      "color": "#1E1E26",
+      "premium": true,
+      "style": {
+        "kind": "checker",
+        "colors": [
+          "#1E1E26",
+          "#FFFAF0"
+        ]
+      },
+      "price": 1000
+    },
+    {
+      "id": "goldhelmet",
+      "name": "Gold",
+      "color": "#E8B530",
+      "premium": true,
+      "style": {
+        "kind": "metal",
+        "colors": [
+          "#E8B530",
+          "#FFF3B0",
+          "#A87A10"
+        ]
+      },
+      "price": 1500
+    }
   ],
   "skin": [
-    { "id": "light", "name": "Light", "color": "#F0C8A0" },
-    { "id": "medium", "name": "Medium", "color": "#D4A574" },
-    { "id": "deep", "name": "Deep", "color": "#A66B3D" }
+    {
+      "id": "light",
+      "name": "Light",
+      "color": "#F0C8A0"
+    },
+    {
+      "id": "medium",
+      "name": "Medium",
+      "color": "#D4A574"
+    },
+    {
+      "id": "deep",
+      "name": "Deep",
+      "color": "#A66B3D"
+    }
+  ],
+  "box": [
+    {
+      "id": "yellow",
+      "name": "Parcel yellow",
+      "color": "#FFCC2E"
+    },
+    {
+      "id": "kraft",
+      "name": "Kraft brown",
+      "color": "#C8955C"
+    },
+    {
+      "id": "mint",
+      "name": "Mint",
+      "color": "#7ED9B5",
+      "price": 200
+    },
+    {
+      "id": "red",
+      "name": "Tomato red",
+      "color": "#FF5A4E",
+      "price": 250
+    },
+    {
+      "id": "steel",
+      "name": "Tiffin steel",
+      "color": "#AEB4BE",
+      "premium": true,
+      "style": {
+        "kind": "metal",
+        "colors": [
+          "#AEB4BE",
+          "#FFFFFF",
+          "#6E7480"
+        ]
+      },
+      "price": 700
+    },
+    {
+      "id": "chequer",
+      "name": "Blue chequer",
+      "color": "#2F8CFF",
+      "premium": true,
+      "style": {
+        "kind": "checker",
+        "colors": [
+          "#2F8CFF",
+          "#FFFAF0"
+        ]
+      },
+      "price": 800
+    },
+    {
+      "id": "diwali",
+      "name": "Festive stripes",
+      "color": "#FF5A4E",
+      "premium": true,
+      "style": {
+        "kind": "stripes",
+        "colors": [
+          "#FF5A4E",
+          "#FFCC2E"
+        ]
+      },
+      "price": 1000
+    },
+    {
+      "id": "galaxy",
+      "name": "Galaxy",
+      "color": "#1B1F45",
+      "premium": true,
+      "style": {
+        "kind": "galaxy",
+        "colors": [
+          "#1B1F45",
+          "#FFFAF0",
+          "#8E44FF"
+        ]
+      },
+      "price": 1500
+    }
   ]
 }

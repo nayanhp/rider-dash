@@ -31,8 +31,9 @@ A Subway Surfers-style 3D-perspective runner. You are a quick-commerce delivery 
 ## Monetisation (in order)
 1. Rewarded ads: **revive after a crash** (once per run), **double coins** at the end of a run.
 2. One interstitial between levels at most, never mid-run.
-3. Android: cosmetic shop (coins or small IAP), one-time "remove ads". No pay-to-win, no loot boxes, nothing cashable.
-4. Later: sponsored levels or skins only with a signed brand deal.
+3. Coin packs for real money (decided 2026-10-16): bought coins spend like earned coins, on upgrades, boosts and looks. Premium looks (patterns, metallics) are the main draw. Payments go through a `PaymentService` interface (`src/platform/payments.ts`); providers: CrazyGames via Xsolla (invite-only, signed-in players), Google Play Billing on Android. Test mode on localhost or `?testpay`. Still: no loot boxes, nothing cashable.
+4. Android: one-time "remove ads".
+5. Later: sponsored levels or skins only with a signed brand deal.
 
 ## Milestones (gate before moving on)
 1. **Core run** — pseudo-3D road, lanes, jump, obstacles, parcels, drop zones, coins, hearts, seeded spawner with tests. Playable on a phone browser.
