@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.6.1 — 2026-10-16 · Fast live link, coin wallet
+
+- The CrazyGames SDK now starts only inside the CrazyGames iframe or on a local dev host
+  (localhost, 127.0.0.1, or `?useLocalSdk=true`). Opened directly elsewhere, such as GitHub
+  Pages, `SDK.init()` spent about 7 seconds deciding it was disabled; the menu now shows in
+  about 0.1 s there.
+- Coins from every run go into a saved wallet (`wallet`, synced through the CrazyGames data
+  module like other progress). A run that ends, is revived with coins, and ends again pays in
+  only its final coins.
+- Double coins pays its bonus into the wallet. It no longer changes the run's coins, so the
+  Endless score and saved best stay as earned and a run still replays from seed + inputs.
+- Menu: saved coins in the panel corner; Cities and Rider share a row; smaller logo on
+  shorter phones; keyboard help hidden on touch-only devices; the panel no longer spills
+  past its bottom edge or sits under the sound button.
+- 7 new tests (65 total).
+
 ## 0.6.0 — 2026-10-15 · Avatar picker
 
 - Rider look is cosmetic: jacket, helmet and skin, chosen from the design avatar kit

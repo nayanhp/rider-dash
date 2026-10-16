@@ -1,6 +1,6 @@
 // Progress keys. On CrazyGames these go through the SDK data module (see crazygames.ts);
 // everywhere else they go through localStorage, which can throw or be missing.
-export const PROGRESS_KEYS = ['stars', 'best', 'pid', 'muted', 'seenHow', 'avatar'] as const;
+export const PROGRESS_KEYS = ['stars', 'best', 'pid', 'muted', 'seenHow', 'avatar', 'wallet'] as const;
 export const storageKey = (key: string) => `rd:${key}`;
 
 export interface KeyValueStore {

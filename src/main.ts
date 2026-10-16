@@ -22,6 +22,7 @@ import rainUrl from './sprites/badge-rain.svg';
 import nightUrl from './sprites/badge-night.svg';
 import unlockUrl from './sprites/badge-city-unlock.svg';
 import { CITIES, ENDLESS, LEVELS, type City, type LevelConfig } from './sim/config';
+import { RunPayout, reloadWallet, walletCoins } from './wallet';
 import { cityCleared, cityOf, cityStars, cityUnlocked, currentLevel, isUnlocked, nextLevel, recordStars, reloadProgress, starsFor } from './progress';
 import { beatBest, createRun, isEndless, meters, reviveStillOpen, score, seconds, step, type InputLog, type RunState, type SimEvent } from './sim/run';
 import logoUrl from './assets/logo.png';
@@ -96,7 +97,8 @@ let portal: Portal;
 let inGameplay = false;
 let adBusy = false;
 let rewardedThisBreak = false;
-let coinsDoubled = false;
+/** Coins this run has paid into the wallet, and whether its ad bonus was taken. */
+let payout = new RunPayout();
 let celebrated = false;
 let resultTracked = false;
 let adNote = '';
@@ -252,7 +254,7 @@ function startRun(cfg: LevelConfig) {
   input.drain();
   runLive = true;
   rewardedThisBreak = false;
-  coinsDoubled = false;
+  payout = new RunPayout();
   celebrated = false;
   resultTracked = false;
   adNote = '';
@@ -355,6 +357,7 @@ function abandonRun() {
     save('best', s);
     celebrate();
   }
+  payout.settle(run.coins);
   track({ name: 'level_end', level: cfg.id, result: 'quit', stars: 0, time: Math.round(seconds(run)) });
   if (endless) track({ name: 'endless_end', score: s });
   runLive = false;
@@ -381,6 +384,7 @@ function endRun() {
   const endless = isEndless(run);
   const bestBefore = endless ? load('best', 0) : 0;
   persistProgress();
+  payout.settle(run.coins);
   const next = !endless && won ? nextLevel(cfg) : undefined;
   const newCity = !!(next && next.cityId !== cfg.cityId);
   if (newCity) celebrate();
@@ -391,7 +395,7 @@ function endRun() {
   const showResult = () => {
     const offerAdRevive = run.status === 'lost' && !run.revived && !rewardedThisBreak && portal.ads.rewardedAvailable();
     const offerCoinRevive = reviveStillOpen(run, false);
-    const offerDouble = !coinsDoubled && !rewardedThisBreak && run.coins > 0 && portal.ads.rewardedAvailable() && (won || endless);
+    const offerDouble = !payout.doubled && !rewardedThisBreak && run.coins > 0 && portal.ads.rewardedAvailable() && (won || endless);
     // Revive and a midgame ad cannot share this break. Double-coins is optional;
     // taking it sets rewardedThisBreak so Next / Retry will not play a second ad.
     const withMidgame = !offerAdRevive;
@@ -421,7 +425,7 @@ function endRun() {
         <div class="stats">
           <span class="chip">${ico(flagUrl)} ${meters(run)} m</span>
           <span class="chip">${ico(parcelUrl)} ${run.delivered}</span>
-          <span class="chip">${ico(hudCoinUrl)} <b id="coin-count">0</b>${coinsDoubled ? ' ×2' : ''}</span>
+          <span class="chip">${ico(hudCoinUrl)} <b id="coin-count">0</b>${payout.doubled ? ' ×2' : ''}</span>
         </div>
         ${offerAdRevive ? '<p class="small-print">Revive is optional. Watch a short video, spend coins, or ride again.</p>' : ''}
         ${note}
@@ -441,7 +445,7 @@ function endRun() {
         false,
         true,
       );
-      finishResult(run.coins, record);
+      finishResult(run.coins + payout.bonus, record);
       return;
     }
 
@@ -449,7 +453,7 @@ function endRun() {
       `<p class="where">${cfg.city}</p><h2 class="${won ? 'win' : 'lose'}">${won ? `${cfg.name} delivered!` : 'Out of hearts!'}</h2>${starsHtml(stars, 'big-stars')}
       <div class="stats">
         <span class="chip">${ico(parcelUrl)} ${run.delivered}/${cfg.goal}</span>
-        <span class="chip">${ico(hudCoinUrl)} <b id="coin-count">0</b>${coinsDoubled ? ' ×2' : ''}</span>
+        <span class="chip">${ico(hudCoinUrl)} <b id="coin-count">0</b>${payout.doubled ? ' ×2' : ''}</span>
         <span class="chip">${Math.round(seconds(run))}s</span>
       </div>
       ${newCity ? `<p class="unlock">${ico(unlockUrl, 'unlock-ico')}<span>${cfg.city} complete! <b>${next?.city}</b> unlocked.</span></p>` : ''}
@@ -473,7 +477,7 @@ function endRun() {
       false,
       true,
     );
-    finishResult(run.coins, false);
+    finishResult(run.coins + payout.bonus, false);
   };
 
   later(showResult);
@@ -540,9 +544,8 @@ async function onDouble(redraw: () => void) {
     return;
   }
   track({ name: 'ad_watched', placement: 'double_coins' });
-  run.coins = Math.floor(run.coins * run.tuning.coinDoubleMultiplier);
-  coinsDoubled = true;
-  persistProgress();
+  // The bonus goes to the saved wallet. The run's coins and the endless score stay as earned.
+  payout.double(run.coins, run.tuning.coinDoubleMultiplier);
   redraw();
 }
 
@@ -586,6 +589,7 @@ function showMenu() {
   screen(
     `<img class="logo" src="${logoUrl}" alt="Rider Dash" width="600" height="406">
     <p class="tag">Deliver parcels across India, one neighbourhood at a time.</p>
+    <span class="chip wallet" aria-label="${walletCoins()} coins saved">${ico(hudCoinUrl)} ${walletCoins()}</span>
     ${first ? `<ul class="how">
       <li><b>Swipe</b> or <b>tap</b> left and right to change lanes</li>
       <li><b>Swipe up</b> to jump potholes and speed breakers</li>
@@ -597,8 +601,10 @@ function showMenu() {
     <div class="col">
       <button class="btn green" data-act="play" autofocus>${ico(playUrl)} Play · ${cur.name}</button>
       <button class="btn red" data-act="endless">${ico(endlessUrl)} Endless · best ${load('best', 0)}</button>
-      <button class="btn blue" data-act="cities">${ico(mapUrl)} Cities</button>
-      <button class="btn yellow" data-act="rider">Rider</button>
+      <div class="pair">
+        <button class="btn blue" data-act="cities">${ico(mapUrl)} Cities</button>
+        <button class="btn yellow" data-act="rider">Rider</button>
+      </div>
     </div>`,
     {
       play: () => {
@@ -935,6 +941,7 @@ if (import.meta.env.DEV) {
 async function boot() {
   portal = await bootPortal();
   reloadProgress();
+  reloadWallet();
   reloadAvatar();
   const fonts = document.fonts;
   await Promise.race([

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { canPlayAudio, setAdMuted, setSdkMuted } from './audio';
-import { AD_REQUEST_TIMEOUT_MS, connectPortal, migrateProgress, resetSdkEmitState, type CrazySDK } from './crazygames';
+import { AD_REQUEST_TIMEOUT_MS, connectPortal, migrateProgress, resetSdkEmitState, shouldBootSdk, type CrazySDK } from './crazygames';
 import { load, save, useStore } from './storage';
 
 function memoryStore() {
@@ -263,5 +263,22 @@ describe('progress storage', () => {
     save('best', 5);
     expect(data.get('rd:best')).toBe('5');
     expect(load('best', 0)).toBe(5);
+  });
+});
+
+describe('where the SDK starts', () => {
+  const at = (hostname: string, framed = false, search = '') => shouldBootSdk({ hostname, search, framed });
+
+  it('starts inside the CrazyGames iframe and on local dev hosts', () => {
+    expect(at('games.crazygames.com', true)).toBe(true);
+    expect(at('localhost')).toBe(true);
+    expect(at('127.0.0.1')).toBe(true);
+    expect(at('192.168.0.44', false, '?useLocalSdk=true')).toBe(true);
+  });
+
+  it('skips a top-level page elsewhere, such as GitHub Pages', () => {
+    expect(at('nayanhp.github.io')).toBe(false);
+    expect(at('192.168.0.44')).toBe(false);
+    expect(at('nayanhp.github.io', false, '?useLocalSdk=false')).toBe(false);
   });
 });

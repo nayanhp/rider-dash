@@ -260,9 +260,30 @@ function loadSdkScript(): Promise<CrazySDK | null> {
   });
 }
 
-/** Init the SDK if this page is on CrazyGames or localhost; otherwise play offline. */
+/**
+ * Whether to start the SDK here. CrazyGames always runs games inside an iframe, and the
+ * SDK's own local mode wants localhost (or ?useLocalSdk=true on a LAN IP). Anywhere else,
+ * such as the game opened directly on GitHub Pages, init only works out it is disabled,
+ * and that takes about 7 seconds. Skip it there so the menu shows at once.
+ */
+export function shouldBootSdk(where: { hostname: string; search: string; framed: boolean }): boolean {
+  if (where.framed) return true;
+  if (where.hostname === 'localhost' || where.hostname === '127.0.0.1' || where.hostname === '[::1]') return true;
+  return new URLSearchParams(where.search).get('useLocalSdk') === 'true';
+}
+
+function isFramed(): boolean {
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true; // cross-origin parent: we are framed
+  }
+}
+
+/** Init the SDK on CrazyGames or a local dev host; otherwise play offline. */
 export async function bootPortal(): Promise<Portal> {
   if (typeof window === 'undefined') return offlinePortal();
+  if (!shouldBootSdk({ hostname: location.hostname, search: location.search, framed: isFramed() })) return offlinePortal();
   try {
     return await connectPortal(await loadSdkScript());
   } catch {

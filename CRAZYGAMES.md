@@ -48,7 +48,7 @@ Menu, Cities, and Areas never request an ad. The main Play button starts the cur
 
 In the submission flow, set progress save to **Yes, using the Data Module from the CrazyGames SDK**. If that toggle is off, the module throws `dataModuleDisabled` and the game keeps the local save instead — cloud sync will not work until the toggle is on.
 
-The adapter copies any existing `rd:stars`, `rd:best`, `rd:pid`, and `rd:muted` keys into the data module once, and does not overwrite keys the module already has. After that, reads and writes go to the data module only. Guest data stays in the SDK’s own storage and moves to the account when the player signs in; the game does nothing extra for that.
+The adapter copies any existing progress keys (`rd:stars`, `rd:best`, `rd:pid`, `rd:muted`, `rd:seenHow`, `rd:avatar`, `rd:wallet`) into the data module once, and does not overwrite keys the module already has. After that, reads and writes go to the data module only. Guest data stays in the SDK’s own storage and moves to the account when the player signs in; the game does nothing extra for that.
 
 ## Local testing
 
