@@ -2,6 +2,21 @@
 // it asks these functions, the same way ads go through AdService.
 export type PortalMode = 'local' | 'crazygames' | 'offline';
 
+/** Our own hosts: local dev and the GitHub Pages demo. */
+export function isOwnHost(hostname: string): boolean {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || hostname.endsWith('.github.io');
+}
+
+/**
+ * The portal mode the launch rules below should use. An adblocker can stop the SDK from
+ * loading on CrazyGames, which leaves the game in 'offline' mode; a page framed on a host
+ * that is not ours is still the portal, so it gets the portal rules (no store, no test URLs).
+ */
+export function rulesPortal(mode: PortalMode, where: { framed: boolean; hostname: string }): PortalMode {
+  if (mode !== 'offline') return mode;
+  return where.framed && !isOwnHost(where.hostname) ? 'crazygames' : 'offline';
+}
+
 /**
  * `?unlock` and `?testpay` are local-dev and off-portal tools. A production CrazyGames
  * link must not open every neighbourhood or grant test coins. Dev builds still honour

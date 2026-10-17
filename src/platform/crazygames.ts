@@ -287,7 +287,7 @@ export function shouldBootSdk(where: { hostname: string; search: string; framed:
   return new URLSearchParams(where.search).get('useLocalSdk') === 'true';
 }
 
-function isFramed(): boolean {
+export function isFramed(): boolean {
   try {
     return window.self !== window.top;
   } catch {

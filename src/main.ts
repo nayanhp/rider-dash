@@ -7,14 +7,16 @@ import { Input } from './input';
 import { nextHold, type Hold } from './pause';
 import { track } from './platform/analytics';
 import { loadUserMute, muteControl, play, toggleUserMute, unlock, type Sfx } from './platform/audio';
-import { bootPortal, type Portal } from './platform/crazygames';
+import { bootPortal, isFramed, type Portal } from './platform/crazygames';
 import {
   coinStoreVisible,
   midgameOnLeave,
+  rulesPortal,
   shouldStartInGameplay,
   unlockQueryEnabled,
   type AdBreak,
   type LeaveTarget,
+  type PortalMode,
 } from './platform/launch';
 import { COIN_PACKS, noPayments, packTotal, testPayments, wantsTestPayments, type CoinPack, type PaymentService } from './platform/payments';
 import { load, save } from './platform/storage';
@@ -627,9 +629,12 @@ function markSeen() {
   if (!load('seenHow', false)) save('seenHow', true);
 }
 
+/** Portal mode for the launch rules: CrazyGames even when an adblocker stopped the SDK. */
+let rules: PortalMode = 'offline';
+
 /** Coin packs are hidden on CrazyGames until a live PaymentService exists. */
 function storeOpen(): boolean {
-  return coinStoreVisible(portal.mode, payments.mode);
+  return coinStoreVisible(rules, payments.mode);
 }
 
 /** Saved balance. The + is the store entry, and it is omitted where the store is hidden. */
@@ -1339,11 +1344,12 @@ async function boot() {
   reloadWallet();
   reloadShop();
   const dev = import.meta.env.DEV;
-  configureUnlock(unlockQueryEnabled(location.search, portal.mode, dev));
+  rules = rulesPortal(portal.mode, { framed: isFramed(), hostname: location.hostname });
+  configureUnlock(unlockQueryEnabled(location.search, rules, dev));
   payments = wantsTestPayments({
     hostname: location.hostname,
     search: location.search,
-    portal: portal.mode,
+    portal: rules,
     dev,
   })
     ? testPayments(confirmTestPurchase)

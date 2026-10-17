@@ -3,6 +3,7 @@ import {
   coinStoreVisible,
   honourDevQuery,
   midgameOnLeave,
+  rulesPortal,
   shouldStartInGameplay,
   unlockQueryEnabled,
   type AdBreak,
@@ -24,6 +25,22 @@ describe('dev query params', () => {
     expect(unlockQueryEnabled('', 'offline', false)).toBe(false);
     expect(unlockQueryEnabled('?unlock', 'crazygames', true)).toBe(true);
     expect(honourDevQuery('crazygames', true)).toBe(true);
+  });
+});
+
+describe('portal rules when the SDK is blocked', () => {
+  it('treats a framed page on a host that is not ours as CrazyGames', () => {
+    expect(rulesPortal('offline', { framed: true, hostname: 'games.crazygames.com' })).toBe('crazygames');
+    expect(coinStoreVisible(rulesPortal('offline', { framed: true, hostname: 'games.crazygames.com' }), 'none')).toBe(false);
+    expect(unlockQueryEnabled('?unlock', rulesPortal('offline', { framed: true, hostname: 'x.crazygames.com' }), false)).toBe(false);
+  });
+
+  it('leaves our own hosts and a working SDK alone', () => {
+    expect(rulesPortal('offline', { framed: false, hostname: 'nayanhp.github.io' })).toBe('offline');
+    expect(rulesPortal('offline', { framed: true, hostname: 'nayanhp.github.io' })).toBe('offline');
+    expect(rulesPortal('offline', { framed: true, hostname: 'localhost' })).toBe('offline');
+    expect(rulesPortal('local', { framed: true, hostname: 'localhost' })).toBe('local');
+    expect(rulesPortal('crazygames', { framed: true, hostname: 'games.crazygames.com' })).toBe('crazygames');
   });
 });
 

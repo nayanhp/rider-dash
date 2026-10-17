@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.17.1 — 2026-10-17 · Portal rules hold when the SDK is blocked
+
+- If an adblocker stops the CrazyGames SDK from loading, the game used to fall back to "off the
+  portal" rules: the "Soon" coin store came back and `?unlock` / `?testpay` worked. Now a page
+  framed on a host that isn't ours (localhost or GitHub Pages) keeps the CrazyGames rules even
+  without the SDK: no coin store, no test switches, first-time players still go straight into
+  Koramangala. Checked with a production build framed on a LAN address. 157 tests.
 ## 0.17.0 — 2026-10-16 · CrazyGames account
 
 - The menu shows **Sign in with CrazyGames** when the player is a guest, and a picture plus username when they are signed in. The click calls `user.showAuthPrompt()` through `src/platform/user.ts`. Game UI still never touches `window.CrazyGames`. Play stays the main action. A first launch with no stars still rides Koramangala immediately; the pill or chip is on the menu when they come back.
